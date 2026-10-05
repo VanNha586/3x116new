@@ -2,9 +2,10 @@
 """Make Stop also find a bot held only by BypassHelper's active-index map.
 
 The obfuscated UI's avt.Q.H Stop handler normally reads avt.Q.o[index]. When
-that slot is null, the handler currently skips the bot stop path even though
-BypassHelper may still track the live instance. This patch adds a helper method
-that stops that cached bot and inserts a call in the null-slot branch.
+that slot is null, it skips the bot stop path. BypassHelper can also display
+lastActiveBot for a one-account install when its indexed cache misses the bot.
+This patch mirrors that fallback in the stop helper and inserts the call in the
+UI's null-slot branch.
 
 The corresponding Java source change is in scratch/BypassHelper.java.
 
@@ -38,6 +39,7 @@ HELPER_CLASS = "avt/BypassHelper.class"
 STOP_CLASS = "avt/Q.class"
 STOP_METHOD = ("H", "([Ljava/lang/Object;)V")
 FALLBACK_METHOD = ("stopBotAtIndex", "(I)V")
+SINGLE_ACCOUNT_METHOD = ("getSingleAccountFallbackBot", "(I)Ljava/lang/Object;")
 FALLBACK_INSERTION_PC = 44
 
 
@@ -53,7 +55,8 @@ def _member_ref(pool: ConstantPool, tag: int, owner: str,
     return pool._append(CpEntry(tag, raw, value))
 
 
-def _has_fallback_call(code: bytes, pool: ConstantPool) -> bool:
+def _has_static_call(code: bytes, pool: ConstantPool,
+                     target: Tuple[str, str]) -> bool:
     for instruction in decode_instructions(code):
         if instruction.opcode != 0xB8:  # invokestatic
             continue
@@ -67,10 +70,18 @@ def _has_fallback_call(code: bytes, pool: ConstantPool) -> bool:
         if class_entry is None or class_entry.tag != 7 or nt_entry is None or nt_entry.tag != 12:
             continue
         if (pool.utf8(class_entry.value) == "avt/BypassHelper"
-                and pool.utf8(nt_entry.value[0]) == FALLBACK_METHOD[0]
-                and pool.utf8(nt_entry.value[1]) == FALLBACK_METHOD[1]):
+                and pool.utf8(nt_entry.value[0]) == target[0]
+                and pool.utf8(nt_entry.value[1]) == target[1]):
             return True
     return False
+
+
+def _has_fallback_call(code: bytes, pool: ConstantPool) -> bool:
+    return _has_static_call(code, pool, FALLBACK_METHOD)
+
+
+def _has_single_account_call(code: bytes, pool: ConstantPool) -> bool:
+    return _has_static_call(code, pool, SINGLE_ACCOUNT_METHOD)
 
 
 def _code_from_attribute(info: bytes) -> bytes:
@@ -100,8 +111,47 @@ def _validate_null_slot_insertion_point(code: bytes) -> None:
         )
 
 
-def _build_fallback_method(pool: ConstantPool) -> bytes:
-    """Build public static stopBotAtIndex(int), with verifier frames included."""
+def _full_stack_map(pool: ConstantPool,
+                    frames: List[Tuple[int, List[bytes], List[bytes]]]) -> bytes:
+    output = bytearray(struct.pack(">H", len(frames)))
+    previous_pc = -1
+    for pc, locals_items, stack_items in frames:
+        delta = pc - previous_pc - 1
+        output.append(255)  # full_frame
+        output.extend(struct.pack(">H", delta))
+        output.extend(struct.pack(">H", len(locals_items)))
+        output.extend(b"".join(locals_items))
+        output.extend(struct.pack(">H", len(stack_items)))
+        output.extend(b"".join(stack_items))
+        previous_pc = pc
+    return bytes(output)
+
+
+def _code_attribute(pool: ConstantPool, max_stack: int, max_locals: int,
+                    code: bytes, exceptions: List[Tuple[int, int, int, int]],
+                    stack_map: bytes) -> bytes:
+    code_info = bytearray(struct.pack(">HHI", max_stack, max_locals, len(code)))
+    code_info.extend(code)
+    code_info.extend(struct.pack(">H", len(exceptions)))
+    for exception in exceptions:
+        code_info.extend(struct.pack(">HHHH", *exception))
+    code_info.extend(struct.pack(">H", 1))
+    code_info.extend(struct.pack(">HI", pool.add_utf8("StackMapTable"), len(stack_map)))
+    code_info.extend(stack_map)
+    return bytes(code_info)
+
+
+def _method_info(pool: ConstantPool, access: int, key: Tuple[str, str],
+                 code_info: bytes) -> bytes:
+    method = bytearray(struct.pack(">HHHH", access, pool.add_utf8(key[0]),
+                                  pool.add_utf8(key[1]), 1))
+    method.extend(struct.pack(">HI", pool.add_utf8("Code"), len(code_info)))
+    method.extend(code_info)
+    return bytes(method)
+
+
+def _build_fallback_code(pool: ConstantPool) -> bytes:
+    """Build stopBotAtIndex(int), including the one-account last-bot fallback."""
     map_field = _member_ref(
         pool, 9, "avt/BypassHelper", "activeBotsByIndex", "Ljava/util/Map;"
     )
@@ -111,11 +161,14 @@ def _build_fallback_method(pool: ConstantPool) -> bytes:
     map_get = _member_ref(
         pool, 11, "java/util/Map", "get", "(Ljava/lang/Object;)Ljava/lang/Object;"
     )
-    cancel_pending = _member_ref(
-        pool, 10, "avt/BypassHelper", "cancelPendingCast", "(Ljava/lang/Object;)V"
-    )
     is_stopped = _member_ref(
         pool, 10, "avt/BypassHelper", "isBotStopped", "(Ljava/lang/Object;)Z"
+    )
+    single_account_bot = _member_ref(
+        pool, 10, "avt/BypassHelper", SINGLE_ACCOUNT_METHOD[0], SINGLE_ACCOUNT_METHOD[1]
+    )
+    cancel_pending = _member_ref(
+        pool, 10, "avt/BypassHelper", "cancelPendingCast", "(Ljava/lang/Object;)V"
     )
     game_bot_class = pool.add_class("avt/game/k")
     stop_field = _member_ref(pool, 9, "avt/game/k", "hl", "Z")
@@ -123,58 +176,100 @@ def _build_fallback_method(pool: ConstantPool) -> bytes:
         pool, 10, "avt/game/k", "N", "([Ljava/lang/Object;)V"
     )
     object_class = pool.add_class("java/lang/Object")
-    code_name = pool.add_utf8("Code")
-    stack_map_name = pool.add_utf8("StackMapTable")
-    method_name = pool.add_utf8(FALLBACK_METHOD[0])
-    method_descriptor = pool.add_utf8(FALLBACK_METHOD[1])
 
     code = bytearray()
-    code.extend(b"\xb2" + struct.pack(">H", map_field))       # getstatic activeBotsByIndex
-    code.extend(b"\x1a")                                     # iload_0 (account index)
-    code.extend(b"\xb8" + struct.pack(">H", integer_value_of))
-    code.extend(b"\xb9" + struct.pack(">HBB", map_get, 2, 0)) # Map.get(Integer)
-    code.extend(b"\x4c")                                     # astore_1 (bot)
-    code.extend(b"\x2b")                                     # aload_1
-    ifnull_pc = len(code)
-    code.append(0xC6)                                           # ifnull return
-    ifnull_delta_at = len(code)
-    code.extend(b"\x00\x00")
-    code.extend(b"\x2b\xb8" + struct.pack(">H", cancel_pending))
+    code.extend(b"\xb2" + struct.pack(">H", map_field))
+    code.extend(b"\x1a\xb8" + struct.pack(">H", integer_value_of))
+    code.extend(b"\xb9" + struct.pack(">HBB", map_get, 2, 0))
+    code.append(0x4C)  # astore_1
     code.extend(b"\x2b\xb8" + struct.pack(">H", is_stopped))
-    ifne_pc = len(code)
-    code.append(0x9A)                                           # ifne return
-    ifne_delta_at = len(code)
-    code.extend(b"\x00\x00")
-    code.extend(b"\x2b\xc0" + struct.pack(">H", game_bot_class)) # checkcast game.k
-    code.extend(b"\x59\x04\xb5" + struct.pack(">H", stop_field)) # dup; iconst_1; putfield hl
-    code.extend(b"\x03\xbd" + struct.pack(">H", object_class)) # iconst_0; anewarray Object
-    code.extend(b"\xb6" + struct.pack(">H", stop_method))       # invokevirtual N(Object[])
-    return_pc = len(code)
-    code.append(0xB1)                                              # return
-    code[ifnull_delta_at : ifnull_delta_at + 2] = struct.pack(">h", return_pc - ifnull_pc)
-    code[ifne_delta_at : ifne_delta_at + 2] = struct.pack(">h", return_pc - ifne_pc)
+    map_is_live_branch = len(code)
+    code.extend(b"\x99\x00\x00")  # ifeq selected bot
+    code.extend(b"\x1a\xb8" + struct.pack(">H", single_account_bot))
+    code.append(0x4C)  # astore_1
+    code.extend(b"\x2b\xb8" + struct.pack(">H", is_stopped))
+    fallback_is_live_branch = len(code)
+    code.extend(b"\x99\x00\x00")  # ifeq selected bot
+    code.append(0xB1)  # return when neither candidate is live
 
-    # Both conditional branches land at the final return. At that point locals
-    # are: int index, Object bot; the operand stack is empty.
-    stack_map = bytearray(struct.pack(">H", 1))
-    stack_map.append(255)                                          # full_frame
-    stack_map.extend(struct.pack(">H", return_pc))               # offset_delta (first frame)
-    stack_map.extend(struct.pack(">H", 2))                       # locals count
-    stack_map.extend(b"\x01")                                    # Integer local 0
-    stack_map.extend(b"\x07" + struct.pack(">H", object_class))  # Object local 1
-    stack_map.extend(struct.pack(">H", 0))                       # empty stack
+    selected_pc = len(code)
+    code.extend(b"\x2b\xb8" + struct.pack(">H", cancel_pending))
+    code.extend(b"\x2b\xc0" + struct.pack(">H", game_bot_class))
+    code.extend(b"\x59\x04\xb5" + struct.pack(">H", stop_field))
+    code.extend(b"\x03\xbd" + struct.pack(">H", object_class))
+    code.extend(b"\xb6" + struct.pack(">H", stop_method))
+    code.append(0xB1)
+    for branch_pc in (map_is_live_branch, fallback_is_live_branch):
+        code[branch_pc + 1 : branch_pc + 3] = struct.pack(">h", selected_pc - branch_pc)
 
-    code_info = bytearray(struct.pack(">HHI", 3, 2, len(code)))
-    code_info.extend(code)
-    code_info.extend(struct.pack(">H", 0))                       # exception table
-    code_info.extend(struct.pack(">H", 1))                       # Code attributes
-    code_info.extend(struct.pack(">HI", stack_map_name, len(stack_map)))
-    code_info.extend(stack_map)
+    object_type = b"\x07" + struct.pack(">H", object_class)
+    stack_map = _full_stack_map(pool, [(selected_pc, [b"\x01", object_type], [])])
+    return _code_attribute(pool, 3, 2, bytes(code), [], stack_map)
 
-    method = bytearray(struct.pack(">HHHH", 0x0009, method_name, method_descriptor, 1))
-    method.extend(struct.pack(">HI", code_name, len(code_info)))
-    method.extend(code_info)
-    return bytes(method)
+
+def _build_fallback_method(pool: ConstantPool) -> bytes:
+    return _method_info(pool, 0x0009, FALLBACK_METHOD, _build_fallback_code(pool))
+
+
+def _build_single_account_code(pool: ConstantPool) -> bytes:
+    """Return lastActiveBot only for row zero of a one-account UI."""
+    init_ref = _member_ref(pool, 10, "avt/BypassHelper", "init", "()V")
+    accounts_field = _member_ref(
+        pool, 9, "avt/BypassHelper", "fM", "Ljava/lang/reflect/Field;"
+    )
+    field_get = _member_ref(
+        pool, 10, "java/lang/reflect/Field", "get", "(Ljava/lang/Object;)Ljava/lang/Object;"
+    )
+    list_class = pool.add_class("java/util/List")
+    list_size = _member_ref(pool, 11, "java/util/List", "size", "()I")
+    last_bot_field = _member_ref(
+        pool, 9, "avt/BypassHelper", "lastActiveBot", "Ljava/lang/Object;"
+    )
+    throwable_class = pool.add_class("java/lang/Throwable")
+
+    code = bytearray()
+    code.append(0x1A)  # iload_0
+    nonzero_branch = len(code)
+    code.extend(b"\x9a\x00\x00")  # ifne return null
+    code.extend(b"\xb8" + struct.pack(">H", init_ref))
+    code.extend(b"\xb2" + struct.pack(">H", accounts_field))
+    field_missing_branch = len(code)
+    code.extend(b"\xc6\x00\x00")  # ifnull return null
+    code.extend(b"\xb2" + struct.pack(">H", accounts_field))
+    code.extend(b"\x01\xb6" + struct.pack(">H", field_get))
+    code.extend(b"\xc0" + struct.pack(">H", list_class))
+    code.append(0x4C)  # astore_1
+    code.extend(b"\x2b")
+    accounts_missing_branch = len(code)
+    code.extend(b"\xc6\x00\x00")  # ifnull return null
+    code.extend(b"\x2b\xb9" + struct.pack(">HBB", list_size, 1, 0))
+    code.append(0x04)  # iconst_1
+    wrong_count_branch = len(code)
+    code.extend(b"\xa0\x00\x00")  # if_icmpne return null
+    code.extend(b"\xb2" + struct.pack(">H", last_bot_field))
+    code.append(0xB0)  # areturn
+
+    null_return_pc = len(code)
+    code.extend(b"\x01\xb0")  # aconst_null; areturn
+    handler_pc = len(code)
+    code.extend(b"\x57\x01\xb0")  # pop throwable; return null
+    for branch_pc in (nonzero_branch, field_missing_branch,
+                      accounts_missing_branch, wrong_count_branch):
+        code[branch_pc + 1 : branch_pc + 3] = struct.pack(">h", null_return_pc - branch_pc)
+
+    integer_type = b"\x01"
+    throwable_type = b"\x07" + struct.pack(">H", throwable_class)
+    stack_map = _full_stack_map(pool, [
+        (null_return_pc, [integer_type], []),
+        (handler_pc, [integer_type], [throwable_type]),
+    ])
+    exceptions = [(0, null_return_pc, handler_pc, throwable_class)]
+    return _code_attribute(pool, 2, 2, bytes(code), exceptions, stack_map)
+
+
+def _build_single_account_method(pool: ConstantPool) -> bytes:
+    return _method_info(pool, 0x000A, SINGLE_ACCOUNT_METHOD,
+                        _build_single_account_code(pool))
 
 
 def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
@@ -205,6 +300,9 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
     method_count = body_reader.u2()
     method_bytes: List[bytes] = []
     seen_fallback_method = False
+    seen_single_account_method = False
+    fallback_code_found = False
+    single_account_code_found = False
     patched = 0
     stop_method_found = False
     fallback_ref = None
@@ -225,6 +323,15 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
             attribute_name = pool.utf8(attribute_name_index)
             if class_name == HELPER_CLASS and method_key == FALLBACK_METHOD:
                 seen_fallback_method = True
+            if class_name == HELPER_CLASS and method_key == SINGLE_ACCOUNT_METHOD:
+                seen_single_account_method = True
+            if class_name == HELPER_CLASS and method_key == FALLBACK_METHOD and attribute_name == "Code":
+                fallback_code_found = True
+                if not _has_single_account_call(_code_from_attribute(attribute_info), pool):
+                    attribute_info = _build_fallback_code(pool)
+                    patched += 1
+            if class_name == HELPER_CLASS and method_key == SINGLE_ACCOUNT_METHOD and attribute_name == "Code":
+                single_account_code_found = True
             if class_name == STOP_CLASS and method_key == STOP_METHOD:
                 stop_method_found = True
                 if attribute_name == "Code":
@@ -247,9 +354,17 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
 
     if class_name == STOP_CLASS and not stop_method_found:
         raise ClassFormatError(f"{class_name} is missing {STOP_METHOD}")
-    if class_name == HELPER_CLASS and not seen_fallback_method:
-        method_bytes.append(_build_fallback_method(pool))
-        patched += 1
+    if class_name == HELPER_CLASS:
+        if seen_fallback_method and not fallback_code_found:
+            raise ClassFormatError(f"{class_name}: {FALLBACK_METHOD} has no Code attribute")
+        if seen_single_account_method and not single_account_code_found:
+            raise ClassFormatError(f"{class_name}: {SINGLE_ACCOUNT_METHOD} has no Code attribute")
+        if not seen_fallback_method:
+            method_bytes.append(_build_fallback_method(pool))
+            patched += 1
+        if not seen_single_account_method:
+            method_bytes.append(_build_single_account_method(pool))
+            patched += 1
 
     if body_reader.pos != len(body_reader.data):
         # Class-level attributes follow the methods; preserve them unchanged.

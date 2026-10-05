@@ -10,6 +10,7 @@ from patch_stop_fallback import (  # noqa: E402
     FALLBACK_INSERTION_PC,
     FALLBACK_METHOD,
     HELPER_CLASS,
+    SINGLE_ACCOUNT_METHOD,
     STOP_CLASS,
     STOP_METHOD,
     patch_class,
@@ -151,8 +152,11 @@ class StopFallbackRegressionTests(unittest.TestCase):
         cls.source = SOURCE_PATH.read_text(encoding="utf-8")
 
     def test_source_stops_the_bot_tracked_by_account_index(self):
+        self.assertIn("private static Object getSingleAccountFallbackBot(int index)", self.source)
+        self.assertIn("accounts.size() != 1", self.source)
         self.assertIn("public static void stopBotAtIndex(int index)", self.source)
         self.assertIn("activeBotsByIndex.get(Integer.valueOf(index))", self.source)
+        self.assertIn("Object fallbackBot = getSingleAccountFallbackBot(index);", self.source)
         self.assertIn("cancelPendingCast(bot);", self.source)
         self.assertIn("gameBot.hl = true;", self.source)
         self.assertIn("gameBot.N(new Object[0]);", self.source)
@@ -222,6 +226,10 @@ class StopFallbackRegressionTests(unittest.TestCase):
             method_refs,
         )
         self.assertIn(
+            ("avt/BypassHelper", SINGLE_ACCOUNT_METHOD[0], SINGLE_ACCOUNT_METHOD[1]),
+            method_refs,
+        )
+        self.assertIn(
             ("avt/game/k", "N", "([Ljava/lang/Object;)V"),
             method_refs,
         )
@@ -236,7 +244,49 @@ class StopFallbackRegressionTests(unittest.TestCase):
         self.assertTrue(any(item.opcode == 0xB9 for item in instructions), "Map.get is invokeinterface")
         for instruction in instructions:
             self.assertTrue(set(instruction.branch_targets) <= boundaries)
-        self.assertEqual(stack_map_frame_pcs(attributes["StackMapTable"]), [44])
+        self.assertEqual(len(stack_map_frame_pcs(attributes["StackMapTable"])), 1)
+
+    def test_single_account_fallback_matches_the_state_display_fallback(self):
+        pool, methods = parse_members(self.helper_class)
+        self.assertIn(SINGLE_ACCOUNT_METHOD, methods)
+        access, attributes = methods[SINGLE_ACCOUNT_METHOD]
+        self.assertTrue(access & 0x0002, "single-account helper should be private")
+        self.assertTrue(access & 0x0008, "single-account helper should be static")
+        code = attributes["Code"]
+        instructions = decode_instructions(code)
+        boundaries = {item.pc for item in instructions} | {len(code)}
+        self.assertEqual(attributes["MaxStack"], 2)
+        self.assertEqual(attributes["MaxLocals"], 2)
+
+        method_refs = [
+            method_reference(pool, int.from_bytes(item.raw[1:3], "big"))
+            for item in instructions
+            if item.opcode in (0xB6, 0xB7, 0xB8, 0xB9)
+        ]
+        self.assertIn(("avt/BypassHelper", "init", "()V"), method_refs)
+        self.assertIn(
+            ("java/lang/reflect/Field", "get", "(Ljava/lang/Object;)Ljava/lang/Object;"),
+            method_refs,
+        )
+        self.assertIn(("java/util/List", "size", "()I"), method_refs)
+
+        fields = [
+            field_reference(pool, int.from_bytes(item.raw[1:3], "big"))
+            for item in instructions
+            if item.opcode in (0xB2, 0xB3, 0xB4, 0xB5)
+        ]
+        self.assertIn(("avt/BypassHelper", "fM", "Ljava/lang/reflect/Field;"), fields)
+        self.assertIn(("avt/BypassHelper", "lastActiveBot", "Ljava/lang/Object;"), fields)
+        for instruction in instructions:
+            self.assertTrue(set(instruction.branch_targets) <= boundaries)
+        exceptions = attributes["ExceptionTable"]
+        self.assertEqual(len(exceptions), 1)
+        self.assertIn(exceptions[0][0], boundaries)
+        self.assertIn(exceptions[0][1], boundaries)
+        self.assertIn(exceptions[0][2], boundaries)
+        throwable = pool.entries[exceptions[0][3]]
+        self.assertEqual(pool.utf8(throwable.value), "java/lang/Throwable")
+        self.assertEqual(stack_map_frame_pcs(attributes["StackMapTable"]), [42, 44])
 
     def test_patcher_is_idempotent_for_both_classes(self):
         for class_name, data in ((HELPER_CLASS, self.helper_class), (STOP_CLASS, self.stop_class)):

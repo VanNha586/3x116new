@@ -107,16 +107,36 @@ public class BypassHelper {
     }
 
     /**
-     * avt.Q.H can find no bot in its primary slot even while this helper still
-     * tracks the live bot. Stop that fallback instance too, by account index.
+     * The state renderer uses lastActiveBot for a single-account install when
+     * the indexed cache cannot identify the bot. Match that fallback on Stop,
+     * but never borrow the last bot when multiple accounts are present.
+     */
+    private static Object getSingleAccountFallbackBot(int index) {
+        if (index != 0) return null;
+        try {
+            init();
+            if (fM == null) return null;
+            List accounts = (List) fM.get(null);
+            if (accounts == null || accounts.size() != 1) return null;
+            return lastActiveBot;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
+     * avt.Q.H can miss the live instance in its primary slot and indexed cache.
+     * Fall back to lastActiveBot only when the UI has exactly one account.
      */
     public static void stopBotAtIndex(int index) {
         Object bot = activeBotsByIndex.get(Integer.valueOf(index));
-        if (bot == null) return;
-
-        cancelPendingCast(bot);
+        if (isBotStopped(bot)) {
+            Object fallbackBot = getSingleAccountFallbackBot(index);
+            if (!isBotStopped(fallbackBot)) bot = fallbackBot;
+        }
         if (isBotStopped(bot)) return;
 
+        cancelPendingCast(bot);
         avt.game.k gameBot = (avt.game.k) bot;
         gameBot.hl = true;
         gameBot.N(new Object[0]);
