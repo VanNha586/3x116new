@@ -1,0 +1,5 @@
+#Auto mission settings
+#Mon Aug 17 10:56:46 ICT 2026
+session.autoLogin=false
+session.loggedOut=true
+session.secret=enc\:v1\:zeKhUoGXdBMTjQ7Q4QKXyn9T+dqRpMtZpzJRbx5Q3WHxv4BFXvRRxyueHioNLiai4Z3iufBF/fx8yFhUFWPiwg\=\=

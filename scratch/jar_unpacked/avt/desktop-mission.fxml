@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<StackPane fx:id="H" style="-fx-background-color: #f6f7f9; -fx-border-color: #b8c0cc; -fx-border-width: 1;" styleClass="app-root" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1">
+    <VBox fx:id="P" alignment="CENTER" styleClass="login-root">
+        <VBox alignment="CENTER" maxWidth="390.0" spacing="12.0" styleClass="login-card">
+            <Label alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" styleClass="login-title" text="Avatar 3x Tool" textFill="#1706dc">
+                <font>
+                    <Font name="System Bold" size="20.0" />
+                </font>
+            </Label>
+            <TextField fx:id="g" onAction="#J" promptText="Mã kích hoạt" />
+            <Button maxWidth="Infinity" onAction="#J" styleClass="btn,primary" text="Kích hoạt" />
+            <Label fx:id="E" alignment="CENTER" maxWidth="Infinity" styleClass="error" wrapText="true" />
+        </VBox>
+    </VBox>
+
+    <BorderPane fx:id="F" managed="false" style="-fx-background-color: #f6f7f9;" styleClass="app-root" visible="false">
+        <top>
+            <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-padding: 8 10 8 10; -fx-border-color: transparent transparent #b8c0cc transparent; -fx-border-width: 0 0 1 0; -fx-background-color: #ffffff;" styleClass="topbar">
+                <VBox spacing="2.0">
+                    <Label fx:id="s" styleClass="muted" style="-fx-text-fill: #00008B; -fx-font-weight: bold;" />
+                </VBox>
+                <Region HBox.hgrow="ALWAYS" />
+                <Button onAction="#M" styleClass="btn,secondary" text="Hướng dẫn" />
+                <Button onAction="#a" styleClass="btn,secondary" text="Đăng xuất" />
+            </HBox>
+        </top>
+        <center>
+            <SplitPane dividerPositions="0.66" style="-fx-border-color: #b8c0cc; -fx-border-width: 1 0 0 0;" styleClass="workspace">
+                <VBox style="-fx-background-color: #ffffff; -fx-border-color: transparent #b8c0cc transparent transparent; -fx-border-width: 0 1 0 0;" styleClass="pane">
+                    <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-padding: 7 8 7 8; -fx-border-color: transparent transparent #c9ced6 transparent; -fx-border-width: 0 0 1 0; -fx-background-color: #f9fafb;" styleClass="pane-head">
+                        <Label styleClass="pane-title" text="Danh sách tài khoản" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Button onAction="#c" styleClass="btn,secondary" text="Cài đặt Proxy" />
+                        <Button fx:id="Q" onAction="#x" styleClass="btn,secondary" text="Cài đặt nhanh" />
+                        <Button onAction="#g" styleClass="btn,primary" text="Chạy tất cả" />
+                        <Button onAction="#A" styleClass="btn,danger" text="Dừng tất cả" />
+                        <Button fx:id="b" onAction="#j" styleClass="btn,secondary" text="Thêm tài khoản" />
+                    </HBox>
+                    <ScrollPane fitToWidth="true" style="-fx-background-color: #ffffff; -fx-border-color: #c9ced6; -fx-border-width: 0 0 0 0;" styleClass="account-scroll" VBox.vgrow="ALWAYS">
+                        <VBox fx:id="Y" style="-fx-background-color: #ffffff;" styleClass="account-list" />
+                    </ScrollPane>
+                    <VBox fx:id="d" managed="false" spacing="7.0" style="-fx-padding: 10 12 11 12; -fx-background-color: #f8fbff; -fx-border-color: #b8c7da; -fx-border-width: 1 0 0 0;" styleClass="locked-promo" visible="false">
+                        <Label style="-fx-text-fill: #111827; -fx-font-size: 13px; -fx-font-weight: bold;" styleClass="promo-title" text="Mở thêm chức năng" />
+                        <Label style="-fx-text-fill: #4b5563; -fx-font-size: 12px;" styleClass="promo-subtitle" text="Liên hệ ADMIN" wrapText="true" />
+                        <FlowPane hgap="6.0" style="-fx-padding: 1 0 0 0;" styleClass="promo-chips" vgap="6.0" />
+                    </VBox>
+                </VBox>
+
+                <VBox style="-fx-background-color: #ffffff;" styleClass="pane">
+                    <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-padding: 7 8 7 8; -fx-border-color: transparent transparent #c9ced6 transparent; -fx-border-width: 0 0 1 0; -fx-background-color: #f9fafb;" styleClass="pane-head">
+                        <Label styleClass="pane-title" text="Nhật ký" />
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Label fx:id="G" styleClass="badge" text="Chưa chọn" />
+                    </HBox>
+                    <VBox spacing="8.0" VBox.vgrow="ALWAYS">
+                        <padding>
+                            <Insets bottom="8" left="8" right="8" top="8" />
+                        </padding>
+                        <TextArea fx:id="j" editable="false" style="-fx-border-color: #9aa8ba; -fx-border-width: 1; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;" styleClass="log-area" VBox.vgrow="ALWAYS" />
+                        <GridPane fx:id="I" hgap="8.0" style="-fx-padding: 2 0 0 0;" styleClass="info-grid" vgap="8.0" />
+                    </VBox>
+                </VBox>
+            </SplitPane>
+        </center>
+    </BorderPane>
+</StackPane>

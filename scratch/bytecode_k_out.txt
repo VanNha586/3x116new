@@ -1,0 +1,836 @@
+=== Method using ab[31]: V ([Ljava/lang/Object;)V ===
+    TRYCATCHBLOCK L0 L1 L2 java/io/IOException
+    TRYCATCHBLOCK L3 L4 L4 java/io/IOException
+   L0
+    ALOAD 1
+    POP
+    GETSTATIC avt/game/k.ab : [Ljava/lang/String;
+    BIPUSH 58
+    AALOAD
+    ICONST_1
+    ANEWARRAY java/lang/Object
+    DUP_X1
+    SWAP
+    ICONST_0
+    SWAP
+    AASTORE
+    INVOKESTATIC avt/T.P ([Ljava/lang/Object;)V
+    ALOAD 0
+    GETSTATIC avt/game/k.ab : [Ljava/lang/String;
+    BIPUSH 31
+    AALOAD
+    ICONST_1
+    ANEWARRAY java/lang/Object
+    DUP_X1
+    SWAP
+    ICONST_0
+    SWAP
+    AASTORE
+    INVOKEVIRTUAL avt/game/k.o ([Ljava/lang/Object;)V
+    ALOAD 0
+    GETFIELD avt/game/k.O : I
+    SIPUSH 21557
+    LDC 9088880993807526195
+    INVOKESTATIC avt/game/k.a (IJ)I
+    IF_ICMPNE L5
+   L3
+    ALOAD 0
+    GETFIELD avt/game/k.m : Lavt/game/N;
+    ICONST_0
+    ANEWARRAY java/lang/Object
+    INVOKEVIRTUAL avt/game/N.Q ([Ljava/lang/Object;)Z
+    IFEQ L6
+   L1
+    GOTO L5
+   L2
+   FRAME SAME1 java/io/IOException
+    INVOKESTATIC avt/game/k.a (Ljava/lang/Exception;)Ljava/lang/Exception;
+    ATHROW
+   L5
+   FRAME SAME
+    RETURN
+   L4
+   FRAME SAME1 java/io/IOException
+    INVOKESTATIC avt/game/k.a (Ljava/lang/Exception;)Ljava/lang/Exception;
+    ATHROW
+   L6
+   FRAME SAME
+    NEW avt/network/v
+    DUP
+    SIPUSH 23050
+    LDC 3046246223413995502
+    INVOKESTATIC avt/game/k.a (IJ)I
+    INVOKESPECIAL avt/network/v.<init> (I)V
+    ASTORE 2
+    ALOAD 0
+    ALOAD 2
+    ICONST_1
+    ANEWARRAY java/lang/Object
+    DUP_X1
+    SWAP
+    ICONST_0
+    SWAP
+    AASTORE
+    INVOKEVIRTUAL avt/game/k.g ([Ljava/lang/Object;)V
+    RETURN
+    MAXSTACK = 5
+    MAXLOCALS = 3
+
+=== Method using ab[57]: Sr ([Ljava/lang/Object;)V ===
+    TRYCATCHBLOCK L0 L1 L2 java/io/IOException
+    TRYCATCHBLOCK L3 L4 L4 java/io/IOException
+   L0
+    ALOAD 1
+    POP
+    GETSTATIC avt/game/k.ab : [Ljava/lang/String;
+    BIPUSH 36
+    AALOAD
+    ICONST_1
+    ANEWARRAY java/lang/Object
+    DUP_X1
+    SWAP
+    ICONST_0
+    SWAP
+    AASTORE
+    INVOKESTATIC avt/T.P ([Ljava/lang/Object;)V
+    ALOAD 0
+    GETSTATIC avt/game/k.ab : [Ljava/lang/String;
+    BIPUSH 57
+    AALOAD
+    ICONST_1
+    ANEWARRAY java/lang/Object
+    DUP_X1
+    SWAP
+    ICONST_0
+    SWAP
+    AASTORE
+    INVOKEVIRTUAL avt/game/k.o ([Ljava/lang/Object;)V
+    ALOAD 0
+    GETFIELD avt/game/k.O : I
+    SIPUSH 27685
+    LDC 4621276158328394039
+    INVOKESTATIC avt/game/k.a (IJ)I
+    IF_ICMPNE L5
+   L3
+    ALOAD 0
+    GETFIELD avt/game/k.m : Lavt/game/N;
+    ICONST_0
+    ANEWARRAY java/lang/Object
+    INVOKEVIRTUAL avt/game/N.Q ([Ljava/lang/Object;)Z
+    IFEQ L6
+   L1
+    GOTO L5
+   L2
+   FRAME SAME1 java/io/IOException
+    INVOKESTATIC avt/game/k.a (Ljava/lang/Exception;)Ljava/lang/Exception;
+    ATHROW
+   L5
+   FRAME SAME
+    RETURN
+   L4
+   FRAME SAME1 java/io/IOException
+    INVOKESTATIC avt/game/k.a (Ljava/lang/Exception;)Ljava/lang/Exception;
+    ATHROW
+   L6
+   FRAME SAME
+    ALOAD 0
+    ICONST_2
+    ICONST_1
+    ANEWARRAY java/lang/Object
+    DUP_X1
+    SWAP
+    INVOKESTATIC java/lang/Integer.valueOf (I)Ljava/lang/Integer;
+    ICONST_0
+    SWAP
+    AASTORE
+    INVOKEVIRTUAL avt/game/k.k ([Ljava/lang/Object;)V
+    NEW avt/network/v
+    DUP
+    SIPUSH 30908
+    LDC 7601524680053114248
+    INVOKESTATIC avt/game/k.a (IJ)I
+    INVOKESPECIAL avt/network/v.<init> (I)V
+    ASTORE 2
+    ALOAD 0
+    ALOAD 2
+    ICONST_1
+    ANEWARRAY java/lang/Object
+    DUP_X1
+    SWAP
+    ICONST_0
+    SWAP
+    AASTORE
+    INVOKEVIRTUAL avt/game/k.g ([Ljava/lang/Object;)V
+    RETURN
+    MAXSTACK = 5
+    MAXLOCALS = 3
+
+=== Method using ab[31]: <clinit> ()V ===
+    BIPUSH 61
+    ANEWARRAY java/lang/String
+    ASTORE 21
+    ACONST_NULL
+    ICONST_0
+    ISTORE 19
+    LDC "H\u1ee4, Z\u1ea2I#7\u1ef9i\u0014\u0010H\u01b3:xs\u1e81\u001d\u0000p\u00bb6g\u0018SS\u1ebe{,h\u1ed9SL\u1ea22xsU\u0006\u000eq>9lY\u0016\u0000Q\u0016\u00003\u0004K\u0015\u0015k/,p\u000e\\\u000f2jj.\u0006B\u0013-cm.\u0005C\u0011\u000cb-,-F\u0006Nw25e\u0019\u0002##\u001f\u0113:6g\u0014\u0018\u1e9fw{6\u1ed1]SL\u1ea22xsQ\u0001Vf)xgU\u001eE-uv\u0007g4\u001eeQ\u001f\u0000\u0010p:5sA\u001dG#\u0008\u0015-sJ\u00192\u0019\u0008K\u0013bmYISp\u000fK\u000f\u000cP\u0014\u0003Rl#! {8\u001a#\u00029{\u000fn4.e\u0019\u001bEb),bQ\u0012T.\u0004&kjx\u00050uj.\u0006*H\u1ee4, @\u001b\u00da`{4\u01b0\u1ed7\u0007\u0000`\u00b9-,\u0014\u0010Hv\u1ef26 V\u1eb8\u0000o\u01eb\u1ebbt\u0014\u0007I\u1ebc+xt\\\u0016O\u0010p:5sA\u001dG#\u0008\u0015-uF\u00126\u001d\u0006#ef>\nS\u0012D\u1eb61 _\u1eccT#*-\u1ea3\u0014\u0010\u00c2v{;\u00e1\u0018O\u1e8c1 \u0125\u1ebeC#=1lQSPq4 y\u001a\u0007Xwax\u001aG2xc\\\u0006Y\u1ec05x\u0111\u1e8b\u001d\u0000u\u1e90xtF\u009e\u0000`\u00b9-:\u0014\nu2.o\u0014%\u00123io\u0003k\u1ee4,%O\u1e8c1 S\u1e9eI#\u014a\u015bnSSNk\u1ef6( X\u1ed2I/{+\u1ebd\u0014\u0007H\u1eee{4\u1ea1]SSb. O\u1e8c1 S\u1e9eI#3=aF\u0007Bf:, P\u001a\u0000`3-y\u1ef7\u001d\u0000`37 \u0009h3\u00acnSSC\u00f15\u000cL\u000b\u0008O\u00140pKij1\r\u00087\u001c\u000eS\u0007*iA\u000eK\u000e\u0019Wq:\u0000U\u0014\u001f-xA\u00190H3\u00acnSSC\u00f15xpF\u001cXz{,r\u1ee5\u001dG#s,\u1ed1]S\u0131b{k @\u0093I#00o\u1e97\u001d\u000fs)7xMZ\u000b`\u1efc6 G\u1e9e\u0000g\u1ebe6g\u0007/{,yD\u0016\u001d\u0012D\u1eb61 X\u1eb4Nk{)u\u0137\u001dG#8\u00bau\u0010[29oY\u001a\u00001ih1\u0005B\u0017W\u001c\u001eO\u1e8c1 \u0125\u1eb8Nk{<\u1ea1Z\u0014\u0000s)7xMST\u1ea22xiZ\u0017E{{)H3\u00acnSS\u0131\u1ee4{(r[\u000bY/{0\u00e3MSTk\u00b15 D\u0001O{\"xc\\\u001c\u0000j5<eLS\u0005`39t\u0014\u000cp/9r@5Ip31nS\u00029{\u0007/{;eX\u001f\u001d\u0010g4\u001eiZ\u001aSk\u001d1s\\\u001aNd{\u0004N.9 \u0010[29oY\u001a\u0000Nii0\u00058\u0017B\u001c\u0004N.9 \u0010K\u000f\u000cP\u0014\u0003Rl#! X\u1ea4I9{\u0006@\u00b9- W\u0092\u001aD\u1eb61 Y\u0006A#2,eYSFb)5:\u0014\u001aTf6\u0011d\u0009$H\u1ee4, Z\u1ea2I#7\u1ef9i\u0014\u0007H\u1ea6/xb\u1e95\u001a\u000c#(\u1ee5 @\u001b\u1ecd#7\u1ef9i\u0014\u0000Av\u000eb-vtQ\u0012Ml91.W\u001cM%\u0113\u00b8xk\u1e8b\u0007\u0000m\u1e8a1 X\u1ed2I/{\u0149aZ\u0014\u0000d\u1eb61 \u0125\u0170Nd{6h\u1e99\u0003\u000e-u\u0009s)7xM]T{/\u000bg4\u001baA0A[46g\u001bD\u1eb61 P\u008aNd{1tQ\u001e\u0000e:*m\u000eSIg\u001d9rYN\u0004g:,a\u000b/{+\u1ed1\u0014\u001f\u0190\u1ee05?=\u0009/{1tQ\u001eigf\u0003n\u1e881\u0011O\u1e8c1 _\u1eccT#5\u1e89i\u0014\u0003Rl#!\u0014A\u1ef4, \u0125\u1ed4U#7\u01e8\u1ee3@SC\u00e1.xm\u1eef\u001a\u0008r.9nS0Av"
+    DUP
+    ASTORE 18
+    INVOKEVIRTUAL java/lang/String.length ()I
+    ISTORE 20
+    INVOKESTATIC avt/game/k.m ([I)V
+    BIPUSH 41
+    ISTORE 17
+    ICONST_M1
+    ISTORE 16
+   L0
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String;] []
+    BIPUSH 68
+    IINC 16 1
+    ALOAD 18
+    ILOAD 16
+    DUP
+    ILOAD 17
+    IADD
+    INVOKEVIRTUAL java/lang/String.substring (II)Ljava/lang/String;
+    ICONST_M1
+    GOTO L1
+   L2
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [java/lang/String]
+    ALOAD 21
+    SWAP
+    ILOAD 19
+    IINC 19 1
+    SWAP
+    AASTORE
+    ILOAD 16
+    ILOAD 17
+    IADD
+    DUP
+    ISTORE 16
+    ILOAD 20
+    IF_ICMPGE L3
+    ALOAD 18
+    ILOAD 16
+    INVOKEVIRTUAL java/lang/String.charAt (I)C
+    ISTORE 17
+    GOTO L0
+   L3
+   FRAME SAME
+    LDC "\u0002Q[\u0016\u0002~xA\u0006\"\u00dbOB5\u00f0"
+    DUP
+    ASTORE 18
+    INVOKEVIRTUAL java/lang/String.length ()I
+    ISTORE 20
+    BIPUSH 8
+    ISTORE 17
+    ICONST_M1
+    ISTORE 16
+   L4
+   FRAME SAME
+    BIPUSH 38
+    IINC 16 1
+    ALOAD 18
+    ILOAD 16
+    DUP
+    ILOAD 17
+    IADD
+    INVOKEVIRTUAL java/lang/String.substring (II)Ljava/lang/String;
+    ICONST_0
+    GOTO L1
+   L5
+   FRAME SAME1 java/lang/String
+    ALOAD 21
+    SWAP
+    ILOAD 19
+    IINC 19 1
+    SWAP
+    AASTORE
+    ILOAD 16
+    ILOAD 17
+    IADD
+    DUP
+    ISTORE 16
+    ILOAD 20
+    IF_ICMPGE L6
+    ALOAD 18
+    ILOAD 16
+    INVOKEVIRTUAL java/lang/String.charAt (I)C
+    ISTORE 17
+    GOTO L4
+   L6
+   FRAME SAME
+    ALOAD 21
+    PUTSTATIC avt/game/k.ab : [Ljava/lang/String;
+    GOTO L7
+   L1
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String;] [I java/lang/String I]
+    DUP_X2
+    POP
+    INVOKEVIRTUAL java/lang/String.toCharArray ()[C
+    DUP_X1
+    ARRAYLENGTH
+    DUP_X2
+    POP
+    ICONST_0
+    ISTORE 22
+    GOTO L8
+   L9
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I]
+    DUP2
+    SWAP
+    ILOAD 22
+   L10
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I I [C I]
+    DUP2_X1
+    CALOAD
+    SWAP
+    ILOAD 22
+    BIPUSH 7
+    IREM
+    TABLESWITCH
+      0: L11
+      1: L12
+      2: L13
+      3: L14
+      4: L15
+      5: L16
+      default: L17
+   L11
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I]
+    BIPUSH 71
+    GOTO L18
+   L12
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I]
+    BIPUSH 31
+    GOTO L18
+   L13
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I]
+    BIPUSH 28
+    GOTO L18
+   L14
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I]
+    BIPUSH 68
+    GOTO L18
+   L15
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I]
+    BIPUSH 112
+    GOTO L18
+   L16
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I]
+    BIPUSH 55
+    GOTO L18
+   L17
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I]
+    BIPUSH 100
+   L18
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I [C I I I I]
+    IXOR
+    IXOR
+    I2C
+    CASTORE
+    IINC 22 1
+   L8
+   FRAME FULL [T T T T T T T T T T T T T T T T I I java/lang/String I I [Ljava/lang/String; I] [I I [C I]
+    DUP2_X1
+    POP2
+    DUP_X2
+    ILOAD 22
+    IF_ICMPGT L9
+    POP
+    NEW java/lang/String
+    DUP_X1
+    SWAP
+    INVOKESPECIAL java/lang/String.<init> ([C)V
+    INVOKEVIRTUAL java/lang/String.intern ()Ljava/lang/String;
+    SWAP
+    POP
+    SWAP
+    TABLESWITCH
+      0: L5
+      default: L2
+   L7
+   FRAME SAME
+    LDC 7790573966794198958
+    LSTORE 8
+    SIPUSH 133
+    NEWARRAY T_LONG
+    ASTORE 14
+    ICONST_0
+    ISTORE 11
+    LDC "`.w\u000f6\u0089<6#$\u00f0\u00cb/[\u0098\u00d6\u00daX\u00fb8Q0\rt\u00car\u00c5c\u00c1->9L\u008d\u0090-\u0091g\u000f\u0094I\u00c7\u00f25\u00d8\u0010a\u00bf\u0013\u001a\r\u00b2\u00bc+\u008d\u00f7A\u00f2\u000c\u0005A\u0099|Z\u0081R\u00f1`M\u00ab\u00b2?\u009c\u008cgO\u0080\u00d8\u0099\u00d1\u00dc\u0012CG\u00a8\u0086Nz\u001b\u00c5\u0017\u00a0\u008b\u00df\u00a0\u00bb\u00d1\u0094\u009d\u009c7\u00a9}\u00a4G\u001e\u00d1\u00a0\u00bayEn\u00b6,\u0097\u00fa\u00f1\u00ce\u00d2\u0094\u00c4\u00cc\u00fb;l\u00d7\u00ef=\u0016\u00dd\u001c\u0098?q\u00e0\u00c8/\u00ba\u000c\u00b4\u00bbW\u00ad\u00cbcXn\u00b5\u0083N\u0095\u0015u\u001e\u0002\u00ebx3\u00f7\u00d1\u00fan|2\u001e\u00be\u001f=\u00fb\u00bb\u0084\"\u000e\u00e3\u0012\u009dZ\u00b3D\u00d4\u0007\u0011\"L\u00f1{W\u00a3\u0088\u00e6\u0086\u00a8\u0092j\u000c\u0010Evw\u00d5\u000b|\u0082\u00cc\u00f3\u00bbx\u00b6\u00dd\u00d3q\u00cd\u00dbn51f\u00bf\u008e\u0087?\u00fa\u0089\u00ef%\u001f\u000b\u00f6d\u000bt\u0008\u000b#\u00dbb\u00a9\u0095\u00a8\u0081\u00e9\u0089+\u00fb\u001e\u000b\u0017?z\u00abS\u00f4ZXDn\u00a9\u00d9\u009e\u0097/k\u008d\u009a\u0085\u00a4\u0093\u00f9qK\\\u00d0\u00104\u00bd\u00c7T\u0019\u00a6\u008f \u008d\u0098\u00f7hge\u001bRU\u00c3\u00b0\u00de\u0089\u008e\u00eb\u00f3\u0095x\u0002>\u00b8\u0090q\u0012\u00aeD\u00ae\u00b6\u0096$\u00a1\u00df}\u00eb\u00e4\u009f\u0011r\u00d3Ba\u00ab_w~\u0001\u000b^\u0093\u00e8+\u00fd&\u008e\u00f4=\u0012vO-\u009e\u00e9\u00b9\u00cc\u00ff[k\u00be\u000c\u00c8B\u00c7\u0086\u00f3!l\u00cb\u00e8\u00e2\u00cb\u00dd,*~\u0087\u0082\u00ca\u00faV)R\u00cdC\u00d8\u00dd\u00f9\u00ccF\u0086\u000c\u000fk\n\u001f{x\u00c4{\u008f\u00b5c5\u008cb\u00b0\u00a1\u00c8Q\u00fc\u00d8\u0093j\u00bew}\u00f5\u00dd\u00e8\u00d0\u001a\u0017zj\u00dc!\u00eb\u00caD\u00c7\u0080\u00de\u00a7\u00bb\r\u00a8\u0014\u00b6\u00a2o_\u00dc\u00db\u001a\u00e2\u000c\u009cp\rzb4\u00e0Z\u00b6\u00a9\u000c\u00c2\u0083Xy\u0092\u000eb\u00a7\u00c1\u00f0-\u00c89\u00cc\u0087\u00dc\u00b0\u00a8v+K{\u00ee\u0002\u00adUK\u00fc\u00f9\u0015[\u00d5\u00f7\u00a6PC\u00bc\u00c0\u00d7\u000c\u008c\u00a38L\u00e1\u00ea\u00dc\u00b6S\u00f8.\u00b1\u00ea\u00fdP\u0080\u00d8T\u00a9\u001fV\u000e\u0093\u0087tm{O\u009fr\u00b1\u0099\u00fa\u00c3G\u00f5~\u00a9\u00a4\u00de\u00ee\u00e2U\u00b1\u0019\u00e6\u00d6\u00c6\u0098\u00fb\u00f7\u00c0+\u00c3b\u001e\u000b\u00a9\u00b0\u0018\u00df~\u00cb/o\u00da\u00a8l\u00b2\u00ea>\u00a8^\u009e.[\u00ae}<\u00e0~H\u00d4\u00bdKU\u00ee\u00a1O\u00d1\u000c\u0011\u00bce[\u00fd\u00be\u00cb\u0011O7\u00ae\u00ae\u0000\u009d\u0093'\u00a2w\u00c1i\u00c7\u00b0\u00881\u0090\u0015\u00a2ND\u0083N\u00d1l\u00c9:\u0099x\u00c1\u00bf\u001c\u00033\u0008J\u00b72\u00ce\u00e9\u00d0@\u000c\u00f6\u0005)!\u00ba{\u00bd\u00eaM\u00ab\u00b0\u00f34\u008dPp=\u00fc\u00bcR\u001c>R\u0089x\u00bd\u00c2\u00e3+\u001e\u00c2\u00ca\u000b\u00a8\u0092\u00a1\u00f0\u00087`\u00f5\u008a\u008aA\u00far\u009b\n',\u00a6!e\u0015\u00a5Ko\u0091\u0008\u0094\u00fb1\u00e8H\u00cf1&\u0007v\u00d1/:d\u00d7\u0082\u0006\u00acg\u00d0\u00d6\u00d1\u00fbH\u00e9\u008f\u001c\u00ee\u0094@\u0014\u008a\u00e9]\u0080\u00f4\u009a\u00a7\u0093\u00f3tv\u00b6\u009f\u00ef\u00a2\u00ea\u00d8Y\u00c0>\u00f9\u00fd\u00d2\u000b.\u00c7\u00cb\u00b4\u00e5\u0095\u00b2\u00b1\u00ff\u00b0\u00f0\u009e4\u000c\u0009\u0019\u00b86J\u001eSe\u00fe\u0001\u00bb\u00ce\u001b\u00fe\u009e\u00e6\u0094\u00d9B\u00d7\u0008\u00c8\u00b9\u00fbS8m\u00e5i:x6\u00a7j%\u00de\u0011\u009f\u00f6\u00a1\u00c5b\u001e\u00af\u0096\u00a7b\u001a\u00e0\u0015\u008b\u0000\u00d4\u00e7#\u0086\u000f\u00d1\r\u0019H\u0094%\u0095\u0014\u00c9\u00ac\u00f10iRm\u000905q\u00b4\u00ba)\u00f1Q\u00cf}\u00da\u00d3\u009f\u0097e\u0084\u0083\u009a\u00c3\u0097\u009fw\u0098vl\u0009\u00c9_\u00d1B\u0080\u00a7\r\u00b9\u00d7E\u00ffr\u00e2/P\u001f\u00c3\u00a3.u?\u00c8\u00e7 a\rn<9CMtU;\u00ec\n\u009e\u0002\u00cf\u00b54\u00a8\u009a\u0080\u0094\u0088\u00aa\u00b6!\u00b6U k\u00a1\u00c5\u000b\u00c8\u00f99\u00c0\u00d6\u000f\u0008\u0004\u000e\u00fd\u00b2\u00d8e\u009d\u009f\u0089\u000e\u00e4m\u0009\u00de\u0090\u00eeQ\u00b2\u0004{\u0010\u0011`\u00a8g-\u0097\u00e0\u009d\u0019G\u00da\u00b3\u00c2\u0096\u009b\u00e3\u0086\u00f5\n\u00ecz\u00abAE\u00e1|sy\u001b\u0092\u00d2\u00c2\u00c3wR\u00a4\u00a7Kn>\u0012\u00cf\u0092\u00f9\u00be\u00c2\u00ec\u009c\u00cd\u00ef\u00c8\u00b8\u0086\u009b\"\u009fn\u00a1\u00c2\u00ac\u00ea(q0z4\u00d8\u009el\u0006\u0011B\u00a6\u00fe\u0080\u00d72\u0091\u001f\u001f\u0005\u00ecb\u00d4\u00ca&\u009d\u00e4!\u001bJ\u0082\u00b4B-\u0008\u00e2\u00e1X\u0017\u00ec\u00aa\u00f3\u00db\u00e8i"
+    DUP
+    ASTORE 12
+    INVOKEVIRTUAL java/lang/String.length ()I
+    ISTORE 13
+    ICONST_0
+    ISTORE 10
+   L19
+   FRAME FULL [T T T T T T T T J I I java/lang/String I [J T I I java/lang/String I I [Ljava/lang/String; I] []
+    ALOAD 12
+    ILOAD 10
+    IINC 10 8
+    ILOAD 10
+    INVOKEVIRTUAL java/lang/String.substring (II)Ljava/lang/String;
+    LDC "ISO-8859-1"
+    INVOKEVIRTUAL java/lang/String.getBytes (Ljava/lang/String;)[B
+    ASTORE 15
+    ALOAD 14
+    ILOAD 11
+    IINC 11 1
+    ALOAD 15
+    ICONST_0
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 56
+    LSHL
+    ALOAD 15
+    ICONST_1
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 48
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_2
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 40
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_3
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 32
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_4
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 24
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_5
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 16
+    LSHL
+    LOR
+    ALOAD 15
+    BIPUSH 6
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 8
+    LSHL
+    LOR
+    ALOAD 15
+    BIPUSH 7
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    LOR
+    ICONST_M1
+    GOTO L20
+   L21
+   FRAME FULL [T T T T T T T T J I I java/lang/String I [J [B I I java/lang/String I I [Ljava/lang/String; I] [[J I J]
+    LASTORE
+    ILOAD 10
+    ILOAD 13
+    IF_ICMPLT L19
+    LDC "\u00ad\u00cd\u0000H\u00ccW\u00bbC\u00d2\u0095581\u00dd\u00c7\u00cc"
+    DUP
+    ASTORE 12
+    INVOKEVIRTUAL java/lang/String.length ()I
+    ISTORE 13
+    ICONST_0
+    ISTORE 10
+   L22
+   FRAME SAME
+    ALOAD 12
+    ILOAD 10
+    IINC 10 8
+    ILOAD 10
+    INVOKEVIRTUAL java/lang/String.substring (II)Ljava/lang/String;
+    LDC "ISO-8859-1"
+    INVOKEVIRTUAL java/lang/String.getBytes (Ljava/lang/String;)[B
+    ASTORE 15
+    ALOAD 14
+    ILOAD 11
+    IINC 11 1
+    ALOAD 15
+    ICONST_0
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 56
+    LSHL
+    ALOAD 15
+    ICONST_1
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 48
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_2
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 40
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_3
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 32
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_4
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 24
+    LSHL
+    LOR
+    ALOAD 15
+    ICONST_5
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 16
+    LSHL
+    LOR
+    ALOAD 15
+    BIPUSH 6
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 8
+    LSHL
+    LOR
+    ALOAD 15
+    BIPUSH 7
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    LOR
+    ICONST_0
+    GOTO L20
+   L23
+   FRAME FULL [T T T T T T T T J I I java/lang/String I [J [B I I java/lang/String I I [Ljava/lang/String; I] [[J I J]
+    LASTORE
+    ILOAD 10
+    ILOAD 13
+    IF_ICMPLT L22
+    ALOAD 14
+    PUTSTATIC avt/game/k.bb : [J
+    SIPUSH 133
+    ANEWARRAY java/lang/Integer
+    PUTSTATIC avt/game/k.cb : [Ljava/lang/Integer;
+    SIPUSH 14579
+    LDC 1967069457917511139
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.h2 : I
+    SIPUSH 24397
+    LDC 8308688438914245138
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.d : I
+    SIPUSH 24397
+    LDC 8308688438914245138
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.h9 : I
+    SIPUSH 13410
+    LDC 1296595979726686579
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.hO : I
+    SIPUSH 27321
+    LDC 9134186585256744958
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.ha : I
+    SIPUSH 25137
+    LDC 6116073416956174201
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.hF : I
+    SIPUSH 20346
+    LDC 4668261853770936848
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.hE : I
+    SIPUSH 11282
+    LDC 3981025391530807646
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.r : I
+    GOTO L24
+   L20
+   FRAME FULL [T T T T T T T T J I I java/lang/String I [J [B I I java/lang/String I I [Ljava/lang/String; I] [[J I J I]
+    DUP_X2
+    POP
+    LLOAD 8
+    LXOR
+    DUP2_X1
+    POP2
+    TABLESWITCH
+      0: L23
+      default: L21
+   L24
+   FRAME SAME
+    LDC 7543062095356363454
+    LSTORE 0
+    BIPUSH 9
+    NEWARRAY T_LONG
+    ASTORE 6
+    ICONST_0
+    ISTORE 3
+    LDC "j.\u00af\u00b1\u00e9\u0013\u00f5\u0098n\u00a3\u008f\u00f8\u00f4`\u00cd\u00c2a5?NQZ\u0091\u00b9i\u00b5:\u00eb04\u009c\u0005@N\u00c2\u00e0\u00c5\u00e8\u00a0$\u0012\u00dcAn\u00f4\u00c0\u00ca\u0013-{\u00e4\u00cbQ\u0099Y\u00b7"
+    DUP
+    ASTORE 4
+    INVOKEVIRTUAL java/lang/String.length ()I
+    ISTORE 5
+    ICONST_0
+    ISTORE 2
+   L25
+   FRAME FULL [J I I java/lang/String I [J T J I I java/lang/String I [J [B I I java/lang/String I I [Ljava/lang/String; I] []
+    ALOAD 4
+    ILOAD 2
+    IINC 2 8
+    ILOAD 2
+    INVOKEVIRTUAL java/lang/String.substring (II)Ljava/lang/String;
+    LDC "ISO-8859-1"
+    INVOKEVIRTUAL java/lang/String.getBytes (Ljava/lang/String;)[B
+    ASTORE 7
+    ALOAD 6
+    ILOAD 3
+    IINC 3 1
+    ALOAD 7
+    ICONST_0
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 56
+    LSHL
+    ALOAD 7
+    ICONST_1
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 48
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_2
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 40
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_3
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 32
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_4
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 24
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_5
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 16
+    LSHL
+    LOR
+    ALOAD 7
+    BIPUSH 6
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 8
+    LSHL
+    LOR
+    ALOAD 7
+    BIPUSH 7
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    LOR
+    ICONST_M1
+    GOTO L26
+   L27
+   FRAME FULL [J I I java/lang/String I [J [B J I I java/lang/String I [J [B I I java/lang/String I I [Ljava/lang/String; I] [[J I J]
+    LASTORE
+    ILOAD 2
+    ILOAD 5
+    IF_ICMPLT L25
+    LDC "\u0019\"m\u000e\u00e7)\u008d\u00fb3\u0084\u00c5\u00f3\u00a5R\u00af\u00ab"
+    DUP
+    ASTORE 4
+    INVOKEVIRTUAL java/lang/String.length ()I
+    ISTORE 5
+    ICONST_0
+    ISTORE 2
+   L28
+   FRAME SAME
+    ALOAD 4
+    ILOAD 2
+    IINC 2 8
+    ILOAD 2
+    INVOKEVIRTUAL java/lang/String.substring (II)Ljava/lang/String;
+    LDC "ISO-8859-1"
+    INVOKEVIRTUAL java/lang/String.getBytes (Ljava/lang/String;)[B
+    ASTORE 7
+    ALOAD 6
+    ILOAD 3
+    IINC 3 1
+    ALOAD 7
+    ICONST_0
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 56
+    LSHL
+    ALOAD 7
+    ICONST_1
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 48
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_2
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 40
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_3
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 32
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_4
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 24
+    LSHL
+    LOR
+    ALOAD 7
+    ICONST_5
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 16
+    LSHL
+    LOR
+    ALOAD 7
+    BIPUSH 6
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    BIPUSH 8
+    LSHL
+    LOR
+    ALOAD 7
+    BIPUSH 7
+    BALOAD
+    I2L
+    LDC 255
+    LAND
+    LOR
+    ICONST_0
+    GOTO L26
+   L29
+   FRAME FULL [J I I java/lang/String I [J [B J I I java/lang/String I [J [B I I java/lang/String I I [Ljava/lang/String; I] [[J I J]
+    LASTORE
+    ILOAD 2
+    ILOAD 5
+    IF_ICMPLT L28
+    ALOAD 6
+    PUTSTATIC avt/game/k.db : [J
+    BIPUSH 9
+    ANEWARRAY java/lang/Long
+    PUTSTATIC avt/game/k.eb : [Ljava/lang/Long;
+    GOTO L30
+   L26
+   FRAME FULL [J I I java/lang/String I [J [B J I I java/lang/String I [J [B I I java/lang/String I I [Ljava/lang/String; I] [[J I J I]
+    DUP_X2
+    POP
+    LLOAD 0
+    LXOR
+    DUP2_X1
+    POP2
+    TABLESWITCH
+      0: L29
+      default: L27
+   L30
+   FRAME SAME
+    NEW java/security/SecureRandom
+    DUP
+    INVOKESPECIAL java/security/SecureRandom.<init> ()V
+    PUTSTATIC avt/game/k.W : Ljava/security/SecureRandom;
+    SIPUSH 1068
+    LDC 7111415337714039117
+    INVOKESTATIC avt/game/k.a (IJ)I
+    PUTSTATIC avt/game/k.hq : I
+    RETURN
+    MAXSTACK = 10
+    MAXLOCALS = 23
+
