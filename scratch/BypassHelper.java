@@ -193,9 +193,11 @@ public class BypassHelper {
                 public void run() {
                     try {
                         cancelPendingCast(bot);
-                        Field fw = bot.getClass().getDeclaredField("w");
-                        fw.setAccessible(true);
-                        if (!fw.getBoolean(bot)) {
+                        // The game bot sets `hl` when its Stop handler runs. `w` is
+                        // an unrelated field and never reflects the stopped state.
+                        Field stoppingFlag = bot.getClass().getDeclaredField("hl");
+                        stoppingFlag.setAccessible(true);
+                        if (!stoppingFlag.getBoolean(bot)) {
                             doSr(bot);
                         }
                     } catch (Throwable t) {}
@@ -250,9 +252,10 @@ public class BypassHelper {
             // Dọn sạch timer cũ khi ngắt kết nối để không bắn vào session mới
             cancelPendingCast(bot);
 
-            Field fw = bot.getClass().getDeclaredField("w");
-            fw.setAccessible(true);
-            boolean isStopping = fw.getBoolean(bot);
+            // avt.game.k's Stop handler sets `hl` before closing the session.
+            Field stoppingFlag = bot.getClass().getDeclaredField("hl");
+            stoppingFlag.setAccessible(true);
+            boolean isStopping = stoppingFlag.getBoolean(bot);
             if (isStopping) {
                 Method ms = bot.getClass().getDeclaredMethod("S", Object[].class);
                 ms.setAccessible(true);
@@ -712,9 +715,11 @@ public class BypassHelper {
                         if (bot != null) {
                             isRunning = true;
                             try {
-                                Field fwField = bot.getClass().getDeclaredField("w");
-                                fwField.setAccessible(true);
-                                boolean isStopping = fwField.getBoolean(bot);
+                                // Read the flag used by avt.Q's Stop path, not the
+                                // unrelated `w` field (which remains false).
+                                Field stoppingFlag = bot.getClass().getDeclaredField("hl");
+                                stoppingFlag.setAccessible(true);
+                                boolean isStopping = stoppingFlag.getBoolean(bot);
                                 if (isStopping) isRunning = false;
                             } catch (Throwable t) {}
                             
