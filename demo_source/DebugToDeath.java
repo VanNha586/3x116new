@@ -1261,6 +1261,10 @@ extends Application {
         objectArray9[1] = 0;
         objectArray9[0] = this.o.get(stringArray[328]);
         int n3 = Math.max(0, DebugToDeath.R(objectArray9));
+        Object pinnedLogIndex = this.M.get(Integer.valueOf(-1));
+        if (pinnedLogIndex instanceof Integer) {
+            n3 = ((Integer)pinnedLogIndex).intValue();
+        }
         Object[] objectArray10 = new Object[2];
         objectArray10[1] = n3;
         objectArray10[0] = s4;
@@ -3391,6 +3395,10 @@ lbl508:
             objectArray2[1] = 0;
             objectArray2[0] = this.o.get(e[328]);
             int n2 = Math.max(0, DebugToDeath.R(objectArray2));
+            Object pinnedLogIndex = this.M.get(Integer.valueOf(-1));
+            if (pinnedLogIndex instanceof Integer) {
+                n2 = ((Integer)pinnedLogIndex).intValue();
+            }
             try {
                 try {
                     if (n2 < 0 || n2 >= this.R.size()) break block4;
@@ -4701,6 +4709,9 @@ lbl508:
     private void lambda$buildTable$15(TableRow tableRow, MouseEvent mouseEvent) {
         if (!tableRow.isEmpty()) {
             int n2 = ((n)tableRow.getItem()).q;
+            // -1 is reserved in M for the log viewer's manually selected row.
+            // Periodic state refreshes may change selectedIndex; keep the viewed log pinned.
+            this.M.put(Integer.valueOf(-1), Integer.valueOf(n2));
             org.json.simple.S s2 = this.I(new Object[]{avt.Q.n(new Object[]{n2})});
             Object[] objectArray = new Object[2];
             objectArray[1] = false;
@@ -4770,6 +4781,7 @@ lbl508:
     }
 
     private void lambda$accountRowNode$4(n n2, MouseEvent mouseEvent) {
+        this.M.put(Integer.valueOf(-1), Integer.valueOf(n2.q));
         org.json.simple.S s2 = this.I(new Object[]{avt.Q.n(new Object[]{n2.q})});
         Object[] objectArray = new Object[2];
         objectArray[1] = false;
