@@ -106,6 +106,22 @@ public class BypassHelper {
         }
     }
 
+    /**
+     * avt.Q.H can find no bot in its primary slot even while this helper still
+     * tracks the live bot. Stop that fallback instance too, by account index.
+     */
+    public static void stopBotAtIndex(int index) {
+        Object bot = activeBotsByIndex.get(Integer.valueOf(index));
+        if (bot == null) return;
+
+        cancelPendingCast(bot);
+        if (isBotStopped(bot)) return;
+
+        avt.game.k gameBot = (avt.game.k) bot;
+        gameBot.hl = true;
+        gameBot.N(new Object[0]);
+    }
+
     private static boolean isBotStopped(Object bot) {
         if (bot == null) return true;
         try {
