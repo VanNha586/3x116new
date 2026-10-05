@@ -8,14 +8,16 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from patch_stop_flag import (  # noqa: E402
     ConstantPool,
-    CpEntry,
+    GUARDED_METHODS,
     Reader,
+    STOP_HELPER,
     TARGET_METHODS,
     decode_instructions,
     patch_class,
 )
 
 JAR_PATH = ROOT / "app" / "tool.jar"
+LEGACY_JAR_PATH = ROOT / "scratch" / "tool_patched.jar"
 SOURCE_PATH = ROOT / "scratch" / "BypassHelper.java"
 UI_SOURCE_PATH = ROOT / "demo_source" / "DebugToDeath.java"
 
@@ -49,8 +51,19 @@ def parse_members(class_bytes):
             attribute_info = reader.take(reader.u4())
             if attribute_name == "Code":
                 code_reader = Reader(attribute_info)
-                code_reader.take(4)  # max_stack, max_locals
+                attributes["MaxStack"] = code_reader.u2()
+                code_reader.take(2)  # max_locals
                 attributes[attribute_name] = code_reader.take(code_reader.u4())
+                exceptions = []
+                for _ in range(code_reader.u2()):
+                    exceptions.append((code_reader.u2(), code_reader.u2(),
+                                      code_reader.u2(), code_reader.u2()))
+                attributes["ExceptionTable"] = exceptions
+                for _ in range(code_reader.u2()):
+                    nested_name = pool.utf8(code_reader.u2())
+                    nested_info = code_reader.take(code_reader.u4())
+                    if nested_name == "StackMapTable":
+                        attributes[nested_name] = nested_info
         methods[(name, descriptor)] = (access, attributes)
     return pool, fields, methods
 
@@ -98,23 +111,115 @@ def string_loads(code, pool):
     return values
 
 
-def replace_string_constant(data, old_value, new_value):
+def stack_map_frame_pcs(info):
+    reader = Reader(info)
+    frame_count = reader.u2()
+    previous_pc = -1
+    pcs = []
+
+    def skip_verification_type():
+        tag = reader.u1()
+        if tag in (7, 8):
+            reader.take(2)
+        elif tag not in range(0, 7):
+            raise AssertionError(f"invalid verification_type_info tag {tag}")
+
+    for _ in range(frame_count):
+        frame_type = reader.u1()
+        if frame_type <= 63:
+            offset_delta = frame_type
+        elif frame_type <= 127:
+            offset_delta = frame_type - 64
+            skip_verification_type()
+        elif frame_type == 247:
+            offset_delta = reader.u2()
+            skip_verification_type()
+        elif 248 <= frame_type <= 251:
+            offset_delta = reader.u2()
+        elif 252 <= frame_type <= 254:
+            offset_delta = reader.u2()
+            for _ in range(frame_type - 251):
+                skip_verification_type()
+        elif frame_type == 255:
+            offset_delta = reader.u2()
+            for _ in range(reader.u2()):
+                skip_verification_type()
+            for _ in range(reader.u2()):
+                skip_verification_type()
+        else:
+            raise AssertionError(f"reserved stack-map frame type {frame_type}")
+        previous_pc += offset_delta + 1
+        pcs.append(previous_pc)
+    if reader.pos != len(info):
+        raise AssertionError("unexpected trailing StackMapTable data")
+    return pcs
+
+
+def make_stop_references_stale(data, class_name):
     reader = Reader(data)
     reader.take(8)
     pool = ConstantPool.parse(data, reader)
-    matches = [
-        entry.value
-        for index, entry in enumerate(pool.entries)
-        if entry is not None and entry.tag == 8 and pool.string(index) == old_value
-    ]
-    if len(matches) != 1:
-        raise AssertionError(f"expected one String constant {old_value!r}, found {len(matches)}")
-    utf8_index = int(matches[0])
-    encoded = new_value.encode("utf-8")
-    pool.entries[utf8_index] = CpEntry(
-        1, b"\x01" + len(encoded).to_bytes(2, "big") + encoded, new_value
-    )
-    return data[:8] + pool.to_bytes() + data[reader.pos :]
+    body_start = reader.pos
+    old_index = pool.add_string("w")
+    if old_index > 0xFF:
+        raise AssertionError("test fixture needs a low-index `w` String constant")
+
+    body_reader = Reader(data[body_start:])
+    prefix_start = body_reader.pos
+    body_reader.take(6)
+    body_reader.take(body_reader.u2() * 2)
+    for _ in range(body_reader.u2()):
+        body_reader.take(6)
+        for _ in range(body_reader.u2()):
+            body_reader.take(2)
+            body_reader.take(body_reader.u4())
+    fields_end = body_reader.pos
+    output = bytearray(body_reader.data[prefix_start:fields_end])
+    method_count = body_reader.u2()
+    output.extend(method_count.to_bytes(2, "big"))
+    targets = TARGET_METHODS[class_name]
+    changed = 0
+
+    for _ in range(method_count):
+        access, name_index, descriptor_index = body_reader.u2(), body_reader.u2(), body_reader.u2()
+        method_key = (pool.utf8(name_index), pool.utf8(descriptor_index))
+        output.extend(access.to_bytes(2, "big"))
+        output.extend(name_index.to_bytes(2, "big"))
+        output.extend(descriptor_index.to_bytes(2, "big"))
+        attribute_count = body_reader.u2()
+        output.extend(attribute_count.to_bytes(2, "big"))
+        for _ in range(attribute_count):
+            attribute_name = body_reader.u2()
+            attribute_info = body_reader.take(body_reader.u4())
+            if method_key in targets and pool.utf8(attribute_name) == "Code":
+                code_reader = Reader(attribute_info)
+                code_reader.take(4)
+                code_length = code_reader.u4()
+                code = bytearray(code_reader.take(code_length))
+                for instruction in decode_instructions(code):
+                    if instruction.opcode == 0x12:
+                        cp_index = instruction.raw[1]
+                    elif instruction.opcode == 0x13:
+                        cp_index = int.from_bytes(instruction.raw[1:3], "big")
+                    else:
+                        continue
+                    if pool.string(cp_index) != "hl":
+                        continue
+                    if instruction.opcode == 0x12:
+                        code[instruction.pc + 1] = old_index
+                    else:
+                        code[instruction.pc + 1 : instruction.pc + 3] = old_index.to_bytes(2, "big")
+                    changed += 1
+                attribute_info = (attribute_info[:8] + bytes(code)
+                                  + attribute_info[8 + code_length :])
+            output.extend(attribute_name.to_bytes(2, "big"))
+            output.extend(len(attribute_info).to_bytes(4, "big"))
+            output.extend(attribute_info)
+
+    output.extend(body_reader.take(len(body_reader.data) - body_reader.pos))
+    if changed != len(targets):
+        raise AssertionError(f"expected to stale {len(targets)} references, changed {changed}")
+    return data[:8] + pool.to_bytes() + bytes(output)
 
 
 def row_handler_source(source, handler_number):
@@ -158,7 +263,7 @@ class StopButtonRegressionTests(unittest.TestCase):
                               row_handler_source(self.ui_source, handler))
 
     def test_stop_handler_sets_the_same_flag_checked_by_runtime_helper(self):
-        _, game_fields, _ = parse_members(self.classes["avt/game/k.class"])
+        game_pool, game_fields, game_methods = parse_members(self.classes["avt/game/k.class"])
         self.assertIn((65, "hl", "Z"), game_fields)
 
         q_pool, _, q_methods = parse_members(self.classes["avt/Q.class"])
@@ -169,6 +274,16 @@ class StopButtonRegressionTests(unittest.TestCase):
             if opcode == 0xB5
         }
         self.assertIn(("avt/game/k", "hl", "Z"), stop_writes)
+
+        # The game bot's stop routine marks logging stopped and its log method
+        # checks that marker before appending a line to the UI.
+        stop_routine = game_methods[("N", "([Ljava/lang/Object;)V")][1]["Code"]
+        stop_refs = bytecode_field_refs(stop_routine, game_pool)
+        self.assertIn((0xB4, ("avt/game/k", "hl", "Z")), stop_refs)
+        self.assertIn((0xB5, ("avt/game/k", "ho", "Z")), stop_refs)
+        log_method = game_methods[("o", "([Ljava/lang/Object;)V")][1]["Code"]
+        log_refs = bytecode_field_refs(log_method, game_pool)
+        self.assertIn((0xB4, ("avt/game/k", "ho", "Z")), log_refs)
 
         # The bundle now checks `hl` in the watchdog, disconnect path, and UI state.
         for class_name, method_keys in TARGET_METHODS.items():
@@ -190,26 +305,88 @@ class StopButtonRegressionTests(unittest.TestCase):
             3,
             "watchdog, disconnect handling, and displayed running state must all use `hl`",
         )
+        self.assertIn("private static boolean isBotStopped(Object bot)", self.helper_source)
+        self.assertIn("if (bot == null || isBotStopped(bot)) return;", self.helper_source)
         for class_name, class_bytes in self.classes.items():
-            if class_name not in TARGET_METHODS:
+            if class_name not in TARGET_METHODS and class_name not in GUARDED_METHODS:
                 continue
             with self.subTest(class_name=class_name):
                 patched, count = patch_class(class_bytes, class_name)
                 self.assertEqual(count, 0)
                 self.assertEqual(patched, class_bytes)
 
+    def test_pending_casts_and_late_logs_are_guarded_after_stop(self):
+        class_name = "avt/BypassHelper.class"
+        pool, _, methods = parse_members(self.classes[class_name])
+        helper_ref = pool.find_methodref("avt/BypassHelper", *STOP_HELPER)
+        self.assertIsNotNone(helper_ref)
+        expected_prefix = b"\x2a\xb8" + int(helper_ref).to_bytes(2, "big") + b"\x99\x00\x04\xb1"
+
+        for method_key in GUARDED_METHODS[class_name]:
+            with self.subTest(method=method_key):
+                code_attributes = methods[method_key][1]
+                code = code_attributes["Code"]
+                self.assertTrue(code.startswith(expected_prefix))
+                instructions = decode_instructions(code)
+                boundaries = {item.pc for item in instructions} | {len(code)}
+                for instruction in instructions:
+                    self.assertTrue(set(instruction.branch_targets) <= boundaries)
+                for start_pc, end_pc, handler_pc, _ in code_attributes["ExceptionTable"]:
+                    self.assertIn(start_pc, boundaries)
+                    self.assertIn(end_pc, boundaries)
+                    self.assertIn(handler_pc, boundaries)
+                frame_pcs = stack_map_frame_pcs(code_attributes["StackMapTable"])
+                self.assertTrue(set(frame_pcs) <= boundaries)
+                self.assertIn(8, frame_pcs)
+
+        access, helper_attributes = methods[STOP_HELPER]
+        helper_code = helper_attributes["Code"]
+        self.assertTrue(access & 0x0008, "the stop-state helper must be static")
+        self.assertIn("hl", string_loads(helper_code, pool))
+        self.assertEqual(helper_attributes["MaxStack"], 3)
+        exceptions = helper_attributes["ExceptionTable"]
+        self.assertEqual(len(exceptions), 1)
+        catch_type = exceptions[0][3]
+        throwable = pool.entries[catch_type]
+        self.assertEqual(pool.utf8(throwable.value), "java/lang/Throwable")
+        self.assertEqual(
+            helper_attributes["StackMapTable"],
+            b"\x00\x01\x54\x07" + catch_type.to_bytes(2, "big"),
+        )
+
     def test_patcher_corrects_stale_field_loads_without_touching_other_methods(self):
         for class_name in TARGET_METHODS:
             with self.subTest(class_name=class_name):
-                stale = replace_string_constant(self.classes[class_name], "hl", "w")
+                stale = make_stop_references_stale(self.classes[class_name], class_name)
                 corrected, patched_count = patch_class(stale, class_name)
-                expected_count = len(TARGET_METHODS[class_name])
-                self.assertEqual(patched_count, expected_count)
+                self.assertGreaterEqual(patched_count, len(TARGET_METHODS[class_name]))
                 corrected_pool, _, corrected_methods = parse_members(corrected)
                 for method_key in TARGET_METHODS[class_name]:
                     code = corrected_methods[method_key][1]["Code"]
                     self.assertIn("hl", string_loads(code, corrected_pool))
                     self.assertNotIn("w", string_loads(code, corrected_pool))
+
+    def test_patcher_upgrades_legacy_helper_bundle_and_is_idempotent(self):
+        with zipfile.ZipFile(LEGACY_JAR_PATH) as jar:
+            for class_name in TARGET_METHODS:
+                with self.subTest(class_name=class_name):
+                    legacy = jar.read(class_name)
+                    patched, count = patch_class(legacy, class_name)
+                    self.assertGreater(count, 0)
+                    repeated, repeated_count = patch_class(patched, class_name)
+                    self.assertEqual(repeated_count, 0)
+                    self.assertEqual(repeated, patched)
+                    pool, _, methods = parse_members(patched)
+                    for method_key in TARGET_METHODS[class_name]:
+                        code = methods[method_key][1]["Code"]
+                        self.assertIn("hl", string_loads(code, pool))
+                        self.assertNotIn("w", string_loads(code, pool))
+                    if class_name in GUARDED_METHODS:
+                        helper_ref = pool.find_methodref("avt/BypassHelper", *STOP_HELPER)
+                        prefix = b"\x2a\xb8" + int(helper_ref).to_bytes(2, "big") + b"\x99\x00\x04\xb1"
+                        for method_key in GUARDED_METHODS[class_name]:
+                            self.assertTrue(methods[method_key][1]["Code"].startswith(prefix))
+                        self.assertIn(STOP_HELPER, methods)
 
 
 if __name__ == "__main__":

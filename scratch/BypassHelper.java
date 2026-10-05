@@ -74,7 +74,7 @@ public class BypassHelper {
     }
 
     public static void onBotLog(Object bot, Object[] args) {
-        if (bot == null) return;
+        if (bot == null || isBotStopped(bot)) return;
         registerActiveBot(bot);
         if (args != null && args.length > 0 && args[0] != null) {
             String msg = args[0].toString();
@@ -106,9 +106,25 @@ public class BypassHelper {
         }
     }
 
+    private static boolean isBotStopped(Object bot) {
+        if (bot == null) return true;
+        try {
+            Field stoppingFlag = bot.getClass().getDeclaredField("hl");
+            stoppingFlag.setAccessible(true);
+            return stoppingFlag.getBoolean(bot);
+        } catch (Throwable t) {
+            // Fail closed: if the stop state cannot be read, do not queue more work.
+            return true;
+        }
+    }
+
     // Gửi thật sự packet 41 (quangCau)
     private static void sendQuangCauNow(final Object bot) {
         try {
+            if (bot == null || isBotStopped(bot)) {
+                cancelPendingCast(bot);
+                return;
+            }
             cancelPendingCast(bot);
             lastQuangCauMap.put(bot, System.currentTimeMillis());
 
@@ -130,7 +146,7 @@ public class BypassHelper {
     }
 
     public static void doQuangCau(final Object bot) {
-        if (bot == null) return;
+        if (bot == null || isBotStopped(bot)) return;
         registerActiveBot(bot);
 
         // Sau khi câu xong (thành công hoặc trật), bot gọi k.V để quăng cần lượt tiếp.
@@ -138,7 +154,7 @@ public class BypassHelper {
         castScheduler.schedule(new Runnable() {
             public void run() {
                 try {
-                    doSr(bot);
+                    if (!isBotStopped(bot)) doSr(bot);
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
@@ -148,7 +164,7 @@ public class BypassHelper {
 
     public static void doSr(final Object bot) {
         try {
-            if (bot == null) return;
+            if (bot == null || isBotStopped(bot)) return;
             registerActiveBot(bot);
 
             long now = System.currentTimeMillis();
@@ -162,10 +178,13 @@ public class BypassHelper {
             // Hủy timeout cũ (nếu có)
             cancelPendingCast(bot);
 
+            if (isBotStopped(bot)) return;
+
             // 1. Log "Bắt đầu lượt câu mới"
             Method mo = bot.getClass().getDeclaredMethod("o", Object[].class);
             mo.setAccessible(true);
             mo.invoke(bot, new Object[]{ new Object[]{ "Bắt đầu lượt câu mới" } });
+            if (isBotStopped(bot)) return;
 
             // 2. Chọn mồi câu
             Method mk = bot.getClass().getDeclaredMethod("k", Object[].class);
@@ -177,9 +196,11 @@ public class BypassHelper {
             Constructor<?> ctor = vClass.getDeclaredConstructor(int.class);
             ctor.setAccessible(true);
             Object msg45 = ctor.newInstance(45);
+            if (isBotStopped(bot)) return;
             Method mg = bot.getClass().getDeclaredMethod("g", Object[].class);
             mg.setAccessible(true);
             mg.invoke(bot, new Object[]{ new Object[]{ msg45 } });
+            if (isBotStopped(bot)) return;
 
             // 4. Delay ngắn 200ms rồi gửi quangCau (41)
             castScheduler.schedule(new Runnable() {

@@ -36,6 +36,19 @@ TARGET_METHODS = {
     },
 }
 
+# These entry points can be reached by work already queued when Stop is pressed.
+# Their first instructions must reject stopped bots before doing more work/logging.
+GUARDED_METHODS = {
+    "avt/BypassHelper.class": {
+        ("onBotLog", "(Ljava/lang/Object;[Ljava/lang/Object;)V"),
+        ("doQuangCau", "(Ljava/lang/Object;)V"),
+        ("doSr", "(Ljava/lang/Object;)V"),
+        ("sendQuangCauNow", "(Ljava/lang/Object;)V"),
+    },
+}
+STOP_HELPER = ("isBotStopped", "(Ljava/lang/Object;)Z")
+GUARD_PREFIX_LENGTH = 8
+
 
 class ClassFormatError(ValueError):
     """Raised when an unexpected/unsupported class-file structure is found."""
@@ -136,24 +149,74 @@ class ConstantPool:
             return None
         return self.utf8(int(entry.value))
 
+    def _append(self, entry: CpEntry, slots: int = 1) -> int:
+        index = self.count
+        if index + slots > 0xFFFF:
+            raise ClassFormatError("constant pool is full")
+        self.entries.append(entry)
+        if slots == 2:
+            self.entries.append(None)
+        self.count += slots
+        return index
+
+    def add_utf8(self, value: str) -> int:
+        for index, entry in enumerate(self.entries):
+            if entry is not None and entry.tag == 1 and entry.value == value:
+                return index
+        encoded = value.encode("utf-8")
+        if len(encoded) > 0xFFFF:
+            raise ClassFormatError("UTF-8 constant is too long")
+        raw = b"\x01" + struct.pack(">H", len(encoded)) + encoded
+        return self._append(CpEntry(1, raw, value))
+
+    def add_class(self, name: str) -> int:
+        name_index = self.add_utf8(name)
+        for index, entry in enumerate(self.entries):
+            if entry is not None and entry.tag == 7 and entry.value == name_index:
+                return index
+        return self._append(CpEntry(7, b"\x07" + struct.pack(">H", name_index), name_index))
+
+    def add_name_and_type(self, name: str, descriptor: str) -> int:
+        name_index = self.add_utf8(name)
+        descriptor_index = self.add_utf8(descriptor)
+        value = (name_index, descriptor_index)
+        for index, entry in enumerate(self.entries):
+            if entry is not None and entry.tag == 12 and entry.value == value:
+                return index
+        return self._append(CpEntry(12, b"\x0c" + struct.pack(">HH", *value), value))
+
+    def find_methodref(self, owner: str, name: str, descriptor: str) -> Optional[int]:
+        for index, entry in enumerate(self.entries):
+            if entry is None or entry.tag not in (10, 11):
+                continue
+            class_index, name_and_type_index = entry.value
+            class_entry = self.entries[class_index]
+            nt_entry = self.entries[name_and_type_index]
+            if class_entry is None or class_entry.tag != 7 or nt_entry is None or nt_entry.tag != 12:
+                continue
+            if (self.utf8(class_entry.value) == owner
+                    and self.utf8(nt_entry.value[0]) == name
+                    and self.utf8(nt_entry.value[1]) == descriptor):
+                return index
+        return None
+
+    def add_methodref(self, owner: str, name: str, descriptor: str) -> int:
+        existing = self.find_methodref(owner, name, descriptor)
+        if existing is not None:
+            return existing
+        class_index = self.add_class(owner)
+        name_and_type_index = self.add_name_and_type(name, descriptor)
+        value = (class_index, name_and_type_index)
+        return self._append(CpEntry(10, b"\x0a" + struct.pack(">HH", *value), value))
+
     def add_string(self, value: str) -> int:
         for index, entry in enumerate(self.entries):
             if entry is not None and entry.tag == 8 and self.string(index) == value:
                 return index
 
-        encoded = value.encode("utf-8")
-        if len(encoded) > 0xFFFF:
-            raise ClassFormatError("UTF-8 constant is too long")
-        utf8_index = self.count
-        string_index = self.count + 1
-        if string_index >= 0xFFFF:
-            raise ClassFormatError("constant pool is full")
-
-        utf8_raw = b"\x01" + struct.pack(">H", len(encoded)) + encoded
-        string_raw = b"\x08" + struct.pack(">H", utf8_index)
-        self.entries.extend([CpEntry(1, utf8_raw, value), CpEntry(8, string_raw, utf8_index)])
-        self.count += 2
-        return string_index
+        utf8_index = self.add_utf8(value)
+        raw = b"\x08" + struct.pack(">H", utf8_index)
+        return self._append(CpEntry(8, raw, utf8_index))
 
     def to_bytes(self) -> bytes:
         return struct.pack(">H", self.count) + b"".join(
@@ -377,12 +440,25 @@ def _write_verification_type(value: Tuple[int, Optional[int]], positions: Dict[i
     return bytes(result)
 
 
-def _rewrite_stack_map(info: bytes, positions: Dict[int, int]) -> bytes:
+def _rewrite_stack_map(info: bytes, positions: Dict[int, int],
+                       extra_same_frames: Sequence[int] = ()) -> bytes:
     reader = Reader(info)
     number_of_entries = reader.u2()
-    output = bytearray(struct.pack(">H", number_of_entries))
+    extra_frames = sorted(set(extra_same_frames))
+    output = bytearray(struct.pack(">H", number_of_entries + len(extra_frames)))
     old_previous = -1
     new_previous = -1
+
+    for absolute_pc in extra_frames:
+        new_delta = absolute_pc - new_previous - 1
+        if not 0 <= new_delta <= 0xFFFF:
+            raise ClassFormatError("injected stack-map offset is out of range")
+        if new_delta <= 63:
+            output.append(new_delta)
+        else:
+            output.append(251)
+            output.extend(struct.pack(">H", new_delta))
+        new_previous = absolute_pc
 
     for _ in range(number_of_entries):
         frame_type = reader.u1()
@@ -497,13 +573,27 @@ def _rewrite_local_variables(info: bytes, positions: Dict[int, int]) -> bytes:
     return bytes(output)
 
 
-def _rewrite_code_attribute(info: bytes, pool: ConstantPool, new_string_index: int) -> Tuple[bytes, int]:
+def _guard_prefix(methodref_index: int) -> bytes:
+    # if (isBotStopped(arg0)) return; -- target body starts at bytecode offset 8.
+    return b"\x2a\xb8" + struct.pack(">H", methodref_index) + b"\x99\x00\x04\xb1"
+
+
+def _rewrite_code_attribute(info: bytes, pool: ConstantPool, new_string_index: int,
+                             guard_methodref: Optional[int] = None,
+                             stack_map_name_index: Optional[int] = None) -> Tuple[bytes, int]:
     reader = Reader(info)
     max_stack, max_locals = reader.u2(), reader.u2()
     old_code_length = reader.u4()
     old_code = reader.take(old_code_length)
     new_code, positions, patched_count = rewrite_code(old_code, pool, new_string_index)
 
+    guard_prefix = _guard_prefix(guard_methodref) if guard_methodref is not None else b""
+    if guard_prefix:
+        positions = {old_pc: new_pc + len(guard_prefix) for old_pc, new_pc in positions.items()}
+        new_code = guard_prefix + new_code
+        max_stack = max(max_stack, 1)
+
+    relocate = bool(patched_count or guard_prefix)
     exception_count = reader.u2()
     exceptions = []
     for _ in range(exception_count):
@@ -512,13 +602,16 @@ def _rewrite_code_attribute(info: bytes, pool: ConstantPool, new_string_index: i
 
     nested_count = reader.u2()
     nested_attributes = []
+    saw_stack_map = False
     for _ in range(nested_count):
         name_index, length = reader.u2(), reader.u4()
         attribute_info = reader.take(length)
         name = pool.utf8(name_index)
-        if patched_count:
+        if relocate:
             if name == "StackMapTable":
-                attribute_info = _rewrite_stack_map(attribute_info, positions)
+                saw_stack_map = True
+                extra = (len(guard_prefix),) if guard_prefix else ()
+                attribute_info = _rewrite_stack_map(attribute_info, positions, extra)
             elif name == "LineNumberTable":
                 attribute_info = _rewrite_line_numbers(attribute_info, positions)
             elif name in ("LocalVariableTable", "LocalVariableTypeTable"):
@@ -532,11 +625,17 @@ def _rewrite_code_attribute(info: bytes, pool: ConstantPool, new_string_index: i
     if reader.pos != len(info):
         raise ClassFormatError("trailing bytes in Code attribute")
 
+    if guard_prefix and not saw_stack_map:
+        if stack_map_name_index is None:
+            raise ClassFormatError("missing StackMapTable constant for stop guard")
+        frame = bytes((len(guard_prefix),))
+        nested_attributes.append((stack_map_name_index, struct.pack(">H", 1) + frame))
+
     output = bytearray(struct.pack(">HHI", max_stack, max_locals, len(new_code)))
     output.extend(new_code)
     output.extend(struct.pack(">H", exception_count))
     for start_pc, end_pc, handler_pc, catch_type in exceptions:
-        if patched_count:
+        if relocate:
             start_pc = _map_pc(start_pc, positions)
             end_pc = _map_pc(end_pc, positions)
             handler_pc = _map_pc(handler_pc, positions)
@@ -545,29 +644,90 @@ def _rewrite_code_attribute(info: bytes, pool: ConstantPool, new_string_index: i
     for name_index, attribute_info in nested_attributes:
         output.extend(struct.pack(">HI", name_index, len(attribute_info)))
         output.extend(attribute_info)
-    return bytes(output), patched_count
+    return bytes(output), patched_count + int(bool(guard_prefix))
 
 
 def _attributes(reader: Reader, pool: ConstantPool, patch_code: bool = False,
-                new_string_index: Optional[int] = None) -> Tuple[bytes, int]:
+                new_string_index: Optional[int] = None,
+                guard_methodref: Optional[int] = None,
+                stack_map_name_index: Optional[int] = None) -> Tuple[bytes, int]:
     count = reader.u2()
     result = bytearray(struct.pack(">H", count))
     total_patches = 0
     for _ in range(count):
         name_index, length = reader.u2(), reader.u4()
         info = reader.take(length)
-        if pool.utf8(name_index) == "Code" and patch_code:
+        if pool.utf8(name_index) == "Code" and (patch_code or guard_methodref is not None):
             if new_string_index is None:
-                raise ClassFormatError("missing replacement string constant")
-            info, patched = _rewrite_code_attribute(info, pool, new_string_index)
+                new_string_index = pool.add_string(STOP_FIELD)
+            info, patched = _rewrite_code_attribute(
+                info, pool, new_string_index, guard_methodref, stack_map_name_index
+            )
             total_patches += patched
         result.extend(struct.pack(">HI", name_index, len(info)))
         result.extend(info)
     return bytes(result), total_patches
 
 
+def _code_from_attribute(info: bytes) -> bytes:
+    reader = Reader(info)
+    reader.take(4)  # max_stack, max_locals
+    return reader.take(reader.u4())
+
+
+def _has_stop_guard(code: bytes, pool: ConstantPool, methodref_index: Optional[int]) -> bool:
+    if methodref_index is None:
+        return False
+    return code.startswith(_guard_prefix(methodref_index))
+
+
+def _build_stop_helper_method(pool: ConstantPool) -> bytes:
+    stop_string = pool.add_string(STOP_FIELD)
+    object_get_class = pool.add_methodref(
+        "java/lang/Object", "getClass", "()Ljava/lang/Class;"
+    )
+    class_get_field = pool.add_methodref(
+        "java/lang/Class", "getDeclaredField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;"
+    )
+    field_set_accessible = pool.add_methodref(
+        "java/lang/reflect/Field", "setAccessible", "(Z)V"
+    )
+    field_get_boolean = pool.add_methodref(
+        "java/lang/reflect/Field", "getBoolean", "(Ljava/lang/Object;)Z"
+    )
+    throwable_class = pool.add_class("java/lang/Throwable")
+    code_name = pool.add_utf8("Code")
+    stack_map_name = pool.add_utf8("StackMapTable")
+    method_name = pool.add_utf8(STOP_HELPER[0])
+    method_descriptor = pool.add_utf8(STOP_HELPER[1])
+
+    code = bytearray()
+    code.extend(b"\x2a\xb6" + struct.pack(">H", object_get_class))
+    code.extend(b"\x13" + struct.pack(">H", stop_string))
+    code.extend(b"\xb6" + struct.pack(">H", class_get_field))
+    code.extend(b"\x59\x04\xb6" + struct.pack(">H", field_set_accessible))
+    code.extend(b"\x2a\xb6" + struct.pack(">H", field_get_boolean))
+    code.append(0xAC)  # ireturn
+    handler_pc = len(code)
+    code.extend(b"\x57\x04\xac")  # pop throwable; return true (fail closed)
+
+    stack_map = struct.pack(">H", 1) + bytes((64 + handler_pc, 7)) + struct.pack(">H", throwable_class)
+    code_info = bytearray(struct.pack(">HHI", 3, 1, len(code)))
+    code_info.extend(code)
+    code_info.extend(struct.pack(">H", 1))
+    code_info.extend(struct.pack(">HHHH", 0, handler_pc, handler_pc, throwable_class))
+    code_info.extend(struct.pack(">H", 1))
+    code_info.extend(struct.pack(">HI", stack_map_name, len(stack_map)))
+    code_info.extend(stack_map)
+
+    method = bytearray(struct.pack(">HHHH", 0x000A, method_name, method_descriptor, 1))
+    method.extend(struct.pack(">HI", code_name, len(code_info)))
+    method.extend(code_info)
+    return bytes(method)
+
+
 def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
-    if class_name not in TARGET_METHODS:
+    if class_name not in TARGET_METHODS and class_name not in GUARDED_METHODS:
         return data, 0
     if data[:4] != b"\xCA\xFE\xBA\xBE":
         raise ClassFormatError(f"{class_name} is not a class file")
@@ -576,10 +736,10 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
     reader.take(8)  # magic and class-file version
     pool = ConstantPool.parse(data, reader)
     body_start = reader.pos
-    methods_to_patch = TARGET_METHODS[class_name]
+    methods_to_patch = TARGET_METHODS.get(class_name, set())
+    methods_to_guard = GUARDED_METHODS.get(class_name, set())
 
-    # Scan only the target Code attributes first. This lets already-patched JARs
-    # pass through unchanged and avoids appending unused constants.
+    # Inspect the current binary first so applying this patch is idempotent.
     scan = Reader(data[body_start:])
     scan.take(6)  # access_flags, this_class, super_class
     scan.take(scan.u2() * 2)  # interfaces
@@ -591,37 +751,59 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
 
     found_old_references = 0
     found_new_references = 0
+    seen_methods = set()
+    guarded_methods = set()
+    stop_helper_code = None
+    guard_ref = pool.find_methodref("avt/BypassHelper", STOP_HELPER[0], STOP_HELPER[1])
     methods_count = scan.u2()
     for _ in range(methods_count):
         scan.u2()  # access_flags
         name_index, descriptor_index = scan.u2(), scan.u2()
-        method_name = pool.utf8(name_index)
-        descriptor = pool.utf8(descriptor_index)
-        attr_count = scan.u2()
-        for _ in range(attr_count):
+        method_key = (pool.utf8(name_index), pool.utf8(descriptor_index))
+        seen_methods.add(method_key)
+        for _ in range(scan.u2()):
             attr_name_index, length = scan.u2(), scan.u4()
             info = scan.take(length)
-            if (method_name, descriptor) in methods_to_patch and pool.utf8(attr_name_index) == "Code":
-                code_reader = Reader(info)
-                code_reader.take(4)  # max_stack, max_locals
-                code = code_reader.take(code_reader.u4())
+            if pool.utf8(attr_name_index) != "Code":
+                continue
+            code = _code_from_attribute(info)
+            if method_key in methods_to_patch:
                 for instruction in decode_instructions(code):
                     if instruction.opcode in (0x12, 0x13):
-                        cp_index = instruction.raw[1] if instruction.opcode == 0x12 else int.from_bytes(instruction.raw[1:3], "big")
+                        cp_index = (instruction.raw[1] if instruction.opcode == 0x12
+                                    else int.from_bytes(instruction.raw[1:3], "big"))
                         value = pool.string(cp_index)
                         found_old_references += value == "w"
                         found_new_references += value == STOP_FIELD
-    if not found_old_references:
-        if found_new_references != len(methods_to_patch):
-            raise ClassFormatError(
-                f"{class_name}: expected {len(methods_to_patch)} corrected stop-field references, "
-                f"found {found_new_references}"
-            )
+            if method_key in methods_to_guard and _has_stop_guard(code, pool, guard_ref):
+                guarded_methods.add(method_key)
+            if method_key == STOP_HELPER:
+                stop_helper_code = code
+
+    if found_old_references + found_new_references != len(methods_to_patch):
+        raise ClassFormatError(
+            f"{class_name}: expected {len(methods_to_patch)} stop-field references, "
+            f"found {found_old_references} stale and {found_new_references} corrected"
+        )
+
+    missing_guards = methods_to_guard - guarded_methods
+    add_stop_helper = class_name == "avt/BypassHelper.class" and STOP_HELPER not in seen_methods
+    if STOP_HELPER in seen_methods and guard_ref is None:
+        raise ClassFormatError(f"{class_name}: stop helper exists but its call reference is missing")
+    if STOP_HELPER in seen_methods and not stop_helper_code:
+        raise ClassFormatError(f"{class_name}: stop helper has no Code attribute")
+
+    if not found_old_references and not missing_guards and not add_stop_helper:
         return data, 0
 
     replacement_index = pool.add_string(STOP_FIELD)
+    stack_map_name_index = pool.add_utf8("StackMapTable")
+    if methods_to_guard:
+        guard_ref = pool.add_methodref("avt/BypassHelper", STOP_HELPER[0], STOP_HELPER[1])
+    helper_method = _build_stop_helper_method(pool) if add_stop_helper else b""
 
-    # Reparse the class body to produce it with rewritten target Code attributes.
+    # Reparse the class body to write patched Code attributes and (once) the
+    # fail-closed reflection helper used by guards on pending callbacks.
     body_reader = Reader(data[body_start:])
     body_prefix_start = body_reader.pos
     body_reader.take(6)
@@ -634,34 +816,40 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
     fields_end = body_reader.pos
     output_body = bytearray(body_reader.data[body_prefix_start:fields_end])
     method_count = body_reader.u2()
-    output_body.extend(struct.pack(">H", method_count))
-    total_patches = 0
+    output_body.extend(struct.pack(">H", method_count + int(bool(helper_method))))
+    total_edits = 0
 
     for _ in range(method_count):
         access_flags, name_index, descriptor_index = body_reader.u2(), body_reader.u2(), body_reader.u2()
-        method_name = pool.utf8(name_index)
-        descriptor = pool.utf8(descriptor_index)
-        is_target = (method_name, descriptor) in methods_to_patch
+        method_key = (pool.utf8(name_index), pool.utf8(descriptor_index))
+        is_stop_target = method_key in methods_to_patch and found_old_references > 0
+        guard_methodref = guard_ref if method_key in missing_guards else None
         output_body.extend(struct.pack(">HHH", access_flags, name_index, descriptor_index))
-        attrs, patched = _attributes(
+        attrs, edits = _attributes(
             body_reader,
             pool,
-            is_target,
-            replacement_index if is_target else None,
+            is_stop_target,
+            replacement_index,
+            guard_methodref,
+            stack_map_name_index,
         )
-        total_patches += patched
+        total_edits += edits
         output_body.extend(attrs)
+
+    if helper_method:
+        output_body.extend(helper_method)
+        total_edits += 1
 
     # Class attributes are not Code attributes and remain byte-for-byte identical.
     output_body.extend(body_reader.take(len(body_reader.data) - body_reader.pos))
-    if total_patches != found_old_references:
+    expected_edits = found_old_references + len(missing_guards) + int(bool(helper_method))
+    if total_edits != expected_edits:
         raise ClassFormatError(
-            f"{class_name}: found {found_old_references} stale references but patched {total_patches}"
+            f"{class_name}: expected {expected_edits} class edits but applied {total_edits}"
         )
 
     output = data[:8] + pool.to_bytes() + bytes(output_body)
-    return output, total_patches
-
+    return output, total_edits
 
 def patch_jar(source: Path, destination: Optional[Path] = None, check_only: bool = False) -> int:
     destination = destination or source
@@ -680,7 +868,7 @@ def patch_jar(source: Path, destination: Optional[Path] = None, check_only: bool
 
     if check_only:
         if total_patches:
-            raise ClassFormatError(f"{source} still has {total_patches} stale stop-field references")
+            raise ClassFormatError(f"{source} still needs {total_patches} stop-path patch(es)")
         return 0
 
     if total_patches == 0 and source.resolve() == destination.resolve():
@@ -709,7 +897,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("jar", nargs="?", type=Path, default=DEFAULT_JAR,
                         help=f"JAR to patch (default: {DEFAULT_JAR.relative_to(ROOT)})")
     parser.add_argument("--check", action="store_true",
-                        help="verify the stop-flag references without changing the JAR")
+                        help="verify stop-flag references and queued-work guards without changing the JAR")
     parser.add_argument("--output", type=Path,
                         help="write to a separate JAR instead of patching in place")
     args = parser.parse_args(argv)
@@ -718,10 +906,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except (ClassFormatError, OSError, zipfile.BadZipFile) as error:
         parser.error(str(error))
     if args.check:
-        print(f"OK: {args.jar} checks the `hl` stop flag")
+        print(f"OK: {args.jar} has the `hl` stop flag and queued-work guards")
     elif count:
         target = args.output or args.jar
-        print(f"Patched {count} stop-flag reference(s) in {target}")
+        print(f"Applied {count} stop-path update(s) in {target}")
     else:
         print(f"No changes needed: {args.output or args.jar}")
     return 0
