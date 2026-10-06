@@ -3,6 +3,7 @@ package com.fishing.models;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 import static org.junit.Assert.*;
 
 public class FishingLogModelTest {
@@ -22,9 +23,20 @@ public class FishingLogModelTest {
     @Test
     public void testAddLogAndGetCount() {
         assertEquals(0, logModel.getLogCount());
-        logModel.addLog("TEST", "Message 1");
+        String line = logModel.addLog("UNLIMITED", "Message 1");
         assertEquals(1, logModel.getLogCount());
-        assertTrue(logModel.getLogs().get(0).contains("Message 1"));
+        assertTrue(line.contains("[UNLIMITED]"));
+        assertTrue(line.contains("Message 1"));
+    }
+
+    @Test
+    public void testLogsFromTwoStreamsRemainOneChronologicalList() {
+        String first = logModel.addLog("UNLIMITED", "A");
+        String second = logModel.addLog("UNCLEAR", "B");
+        assertEquals(2, logModel.getLogCount());
+        assertTrue(logModel.getLogs().get(0).contains("A"));
+        assertTrue(logModel.getLogs().get(1).contains("B"));
+        assertFalse(first.equals(second));
     }
 
     @Test
