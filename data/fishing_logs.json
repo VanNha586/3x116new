@@ -1,12 +1,41 @@
 {
-  "logs": [
-    "[2026-10-06 10:36:01] [SYSTEM] 🎣 Bắt đầu câu cá...",
-    "[2026-10-06 10:36:01] [SYSTEM] ⏹️ Người dùng bấm DỪNG",
-    "[2026-10-06 10:36:01] [UNLIMITED] ⏹️ Dừng Không giới hạn",
-    "[2026-10-06 10:36:01] [UNCLEAR] ⏹️ Dừng Không rõ",
-    "[2026-10-06 10:36:01] [UNCLEAR] 📝 Nhật ký Không rõ hoàn thành",
-    "[2026-10-06 10:36:01] [UNLIMITED] 📝 Nhật ký Không giới hạn hoàn thành",
-    "[2026-10-06 10:36:01] [SYSTEM] ✅ Kết thúc câu cá"
-  ],
-  "lastUpdated": 1791257761102
+  "version": 2,
+  "lastUpdated": "2026-10-06T06:48:47.056483200Z",
+  "entries": [
+    {
+      "sequence": 1,
+      "epochMillis": 1791269327043,
+      "timestamp": "2026-10-06 13:48:47",
+      "stream": "SYSTEM",
+      "message": "🎣 Bắt đầu câu cá..."
+    },
+    {
+      "sequence": 2,
+      "epochMillis": 1791269327045,
+      "timestamp": "2026-10-06 13:48:47",
+      "stream": "SYSTEM",
+      "message": "⏹️ Người dùng bấm DỪNG"
+    },
+    {
+      "sequence": 3,
+      "epochMillis": 1791269327049,
+      "timestamp": "2026-10-06 13:48:47",
+      "stream": "UNLIMITED",
+      "message": "⏹️ Dừng Không giới hạn"
+    },
+    {
+      "sequence": 4,
+      "epochMillis": 1791269327054,
+      "timestamp": "2026-10-06 13:48:47",
+      "stream": "UNCLEAR",
+      "message": "⏹️ Dừng Không rõ"
+    },
+    {
+      "sequence": 5,
+      "epochMillis": 1791269327056,
+      "timestamp": "2026-10-06 13:48:47",
+      "stream": "SYSTEM",
+      "message": "⏹️ Đã dừng toàn bộ luồng câu cá"
+    }
+  ]
 }

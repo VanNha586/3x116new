@@ -85,6 +85,7 @@ public class FishingService {
         }
 
         stopWorkersAndJoin();
+        joinQuietly(coordinator);
         append("SYSTEM", "⏹️ Đã dừng toàn bộ luồng câu cá");
         notifyStop();
     }

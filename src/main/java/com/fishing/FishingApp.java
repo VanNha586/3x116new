@@ -1,5 +1,6 @@
 package com.fishing;
 
+import com.fishing.controllers.FishingController;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -13,10 +14,15 @@ public class FishingApp extends Application {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/fishing_view.fxml"));
         Parent root = loader.load();
 
-        Scene scene = new Scene(root, 1000, 600);
+        FishingController controller = loader.getController();
+
+        Scene scene = new Scene(root, 1000, 650);
         primaryStage.setTitle("🎣 Công Cụ Câu Cá - Fishing Tool");
         primaryStage.setScene(scene);
         primaryStage.setOnCloseRequest(e -> {
+            if (controller != null) {
+                controller.saveConfig();
+            }
             System.out.println("✅ Ứng dụng đóng, dữ liệu đã lưu.");
         });
         primaryStage.show();
