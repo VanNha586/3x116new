@@ -76,7 +76,8 @@ public class FishingLogModel {
             return;
         }
         try {
-            String json = Files.readString(LOG_FILE, StandardCharsets.UTF_8);
+            byte[] bytes = Files.readAllBytes(LOG_FILE);
+            String json = new String(bytes, StandardCharsets.UTF_8);
             if (json.trim().isEmpty()) return;
             JsonElement root = JsonParser.parseString(json);
             if (root.isJsonObject()) {
@@ -115,7 +116,7 @@ public class FishingLogModel {
             String json = gson.toJson(state);
 
             Path temp = LOG_FILE.resolveSibling(LOG_FILE.getFileName() + ".tmp");
-            Files.writeString(temp, json, StandardCharsets.UTF_8);
+            Files.write(temp, json.getBytes(StandardCharsets.UTF_8));
             try {
                 Files.move(temp, LOG_FILE, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                         java.nio.file.StandardCopyOption.ATOMIC_MOVE);
