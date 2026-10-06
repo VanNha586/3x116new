@@ -1,0 +1,12 @@
+{
+  "logs": [
+    "[2026-10-06 10:36:01] [SYSTEM] 🎣 Bắt đầu câu cá...",
+    "[2026-10-06 10:36:01] [SYSTEM] ⏹️ Người dùng bấm DỪNG",
+    "[2026-10-06 10:36:01] [UNLIMITED] ⏹️ Dừng Không giới hạn",
+    "[2026-10-06 10:36:01] [UNCLEAR] ⏹️ Dừng Không rõ",
+    "[2026-10-06 10:36:01] [UNCLEAR] 📝 Nhật ký Không rõ hoàn thành",
+    "[2026-10-06 10:36:01] [UNLIMITED] 📝 Nhật ký Không giới hạn hoàn thành",
+    "[2026-10-06 10:36:01] [SYSTEM] ✅ Kết thúc câu cá"
+  ],
+  "lastUpdated": 1791257761102
+}

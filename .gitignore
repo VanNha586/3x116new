@@ -2,6 +2,9 @@
 *.log
 *.tmp
 
+# Maven target
+target/
+
 # OS files
 Thumbs.db
 Desktop.ini
