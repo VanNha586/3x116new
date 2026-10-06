@@ -31,7 +31,10 @@ TARGET_METHODS = {
         ("handleDisconnected", "(Ljava/lang/Object;)V"),
         ("getStateJson", "([Ljava/lang/Object;)Ljava/lang/String;"),
     },
-    "avt/BypassHelper$4.class": {
+    # NOTE: anonymous class numbering shifted by 1 after the shutdown-hook lambda
+    # was added in BypassHelper.java (static initializer). The watchdog Runnable
+    # is now $5 instead of $4.
+    "avt/BypassHelper$5.class": {
         ("run", "()V"),
     },
 }
