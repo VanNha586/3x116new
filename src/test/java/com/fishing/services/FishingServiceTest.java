@@ -3,6 +3,7 @@ package com.fishing.services;
 import com.fishing.models.FishingLogModel;
 import org.junit.Before;
 import org.junit.Test;
+
 import static org.junit.Assert.*;
 
 import java.util.concurrent.CountDownLatch;
@@ -20,7 +21,7 @@ public class FishingServiceTest {
     }
 
     @Test
-    public void testStartAndStopFishing() throws InterruptedException {
+    public void testStartAndStopFishingStopsAllWorkers() throws InterruptedException {
         CountDownLatch logLatch = new CountDownLatch(1);
         fishingService.setCallback(new FishingService.FishingCallback() {
             @Override
@@ -37,11 +38,16 @@ public class FishingServiceTest {
 
         fishingService.startFishing();
         assertTrue(fishingService.isRunning());
-        
-        boolean updated = logLatch.await(5, TimeUnit.SECONDS);
-        assertTrue(updated);
+
+        assertTrue(logLatch.await(5, TimeUnit.SECONDS));
 
         fishingService.stopFishing();
         assertFalse(fishingService.isRunning());
+
+        // Give interrupted workers a chance to finish; no new fishing line
+        // should appear after Stop.
+        int countAfterStop = logModel.getLogCount();
+        Thread.sleep(250);
+        assertEquals(countAfterStop, logModel.getLogCount());
     }
 }
