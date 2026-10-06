@@ -1,0 +1,120 @@
+[11:13:08] [Luồng 1] Bắt đầu chạy: nhiệm vụ thợ câu
+[11:13:09] [Luồng 1] Đăng nhập: nhanhacute
+Nhôn vật: Nhaxs2
+Cấp độ chính: 12 +49%
+Xu: 112,663
+Lượng: 0
+[11:13:09] [Luồng 1] AUTO NHIỆM VỤ THỢ CÂU
+[11:13:09] [Luồng 1] Chăm farm trước, sau đó làm nhiệm vụ thợ câu; về farm sau 30 phút
+[11:13:09] [Luồng 1] Cây: {} | Vật nuôi: {} | Nấu bếp: {}
+[11:13:10] [Luồng 1] Tải dữ liệu nông trại 3x
+[11:13:10] [Luồng 1] Ô đất: 44
+[11:13:10] [Luồng 1] Vật nuôi: 0
+[11:13:10] [Luồng 1] Đã lưu cây đang trồng: 8:8, 44:36
+[11:13:10] [Luồng 1] Ô đất: 44
+[11:13:10] [Luồng 1] Vật nuôi: 0
+[11:13:10] [Luồng 1] Đã lưu cây đang trồng: 8:8, 44:36
+[11:13:10] [Luồng 1] KHO NÔNG SẢN
+- Nho: 21,108
+- Cà Chua: 300
+- Hoa Hướng Dương: 5,348
+- Thanh Long: 472
+[11:13:10] [Luồng 1] Đã tải dữ liệu farm 3x: cây=25, vật nuôi=12, món ăn=35
+[11:13:10] [Luồng 1] Bếp hiện có 1 slot
+[11:13:10] [Luồng 1] Bắt đầu kiểm tra nông trại
+[11:13:10] [Luồng 1] BẮT ĐẦU KIỂM TRA NÔNG TRẠI
+[11:13:11] [Luồng 1] Bạn đã nhận đủ 2 phần quà trong ngày hôm nay rồi nhé. Vui lòng quay lại vào ngày mai
+[11:13:11] [Luồng 1] Dùng cây đã lưu để trồng lại vì cài đặt cây trồng đang trống: 8:8, 44:36
+[11:13:11] [Luồng 1] Đã chia lại ô đất
+[11:13:11] [Luồng 1] Kế hoạch cây Thanh long: 8 ô, đang có 8, cần mua 0
+[11:13:11] [Luồng 1] Kế hoạch cây Ớt: 36 ô, đang có 0, cần mua 36
+[11:13:11] [Luồng 1] Cây trồng: Ớt, ô đất: 36, đang có: 0, sẽ mua: 36
+[11:13:11] [Luồng 1] Cập nhật xu: 112,583, lượng: 0, lượng khóa: 99
+[11:13:11] [Luồng 1] Mua Phân bón cao cấp số lượng: 8
+[11:13:11] [Luồng 1] Bạn đã mua vật phẩm thành công.
+[11:13:12] [Luồng 1] Cập nhật xu: 112,223, lượng: 0, lượng khóa: 99
+[11:13:12] [Luồng 1] Mua cải thảo số lượng: 36
+[11:13:12] [Luồng 1] Bạn đã mua vật phẩm thành công.
+[11:13:19] [Luồng 1] Thời gian thu hoạch gần nhất: 60 phút, sẽ về farm sau 30 phút
+[11:13:22] [Luồng 1] KIỂM TRA NÔNG TRẠI XONG !
+[11:13:22] [Luồng 1] Đã chăm farm xong, chuyển sang nhiệm vụ thợ câu trong lúc chờ hẹn farm 30 phút
+[11:13:22] [Luồng 1] # Thực hiện: Nhiệm vụ thợ câu
+[11:13:23] [Luồng 1] Nhiệm vụ hiện tại của bạn là nhiệm vụ:Nhiệm Vụ Thợ Câu - 8:
+- Câu 20 con cá chim  - 7/20
+- Câu 20 con cá lòng tong  - 0/20
+
+Phần Thưởng:
+ - 5000 xu
+ - 100 điểm kinh nghiệm
+ - 10 Thẻ Quay Số Miễn Phí vĩnh viễn
+[11:13:23] [Luồng 1] Câu cá nhiệm vụ thợ câu: mục tiêu cá chim -> map 16 - khu vực -1, mồi trứng kiến
+[11:13:23] [Luồng 1] # Thực hiện: Câu cá nhiệm vụ thợ câu - cá chim (7/20)
+[11:13:23] [Luồng 1] Vào khu 13 1
+[11:13:23] [Luồng 1] Cập nhật xu: 112,223, lượng: 0, lượng khóa: 99
+[11:13:25] [Luồng 1] Đã vào map 13, đang gửi lệnh bán cá
+[11:13:25] [Luồng 1] Cập nhật xu: 113,743, lượng: 0, lượng khóa: 99
+[11:13:25] [Luồng 1] Bạn vừa bán cá và thu về được 1520 xu
+[11:13:27] [Luồng 1] Đã gửi lệnh bán cá, tiếp tục chuẩn bị đi câu
+[11:13:27] [Luồng 1] Chọn lại khu câu tại map 13: mục tiêu cá chim -> map 16 - khu vực -1, mồi trứng kiến
+[11:13:27] [Luồng 1] Gửi yêu cầu tải dữ liệu rương...
+[11:13:29] [Luồng 1] Vào khu câu mục tiêu: map 16 - khu vực tự chọn
+[11:13:29] [Luồng 1] Vào khu 16 0
+[11:13:29] [Luồng 1] Cập nhật xu: 113,743, lượng: 0, lượng khóa: 99
+[11:13:30] [Luồng 1] Đã vào khu câu 16 - khu vực 0
+[11:13:30] [Luồng 1] Di chuyển đến vị trí câu: 228,95
+[11:13:31] [Luồng 1] Gửi lệnh bắt đầu câu
+[11:13:31] [Luồng 1] Bắt đầu lượt câu mới
+[11:13:31] [Luồng 1] Bắt đầu câu cá
+[11:13:31] [Luồng 1] Gửi lệnh quăng câu
+[11:13:31] [Luồng 1] Đã quăng câu
+[11:13:41] [Luồng 1] Cá cắn câu: cá đuối
+[11:13:43] [Luồng 1] Gửi kết quả câu cá
+[11:13:43] [Luồng 1] Đã câu được một con Cá Đuối - Trị giá: 110 xu
+[11:13:43] [Luồng 1] Kết thúc lượt câu, chuẩn bị lượt tiếp theo
+[11:13:43] [Luồng 1] Câu thành công cá đuối
+[11:13:45] [Luồng 1] Bắt đầu lượt câu mới
+[11:13:45] [Luồng 1] Bắt đầu câu cá
+[11:13:45] [Luồng 1] Gửi lệnh quăng câu
+[11:13:45] [Luồng 1] Đã quăng câu
+[11:13:56] [Luồng 1] Gửi kết quả câu cá
+[11:13:57] [Luồng 1] Kết thúc lượt câu, chuẩn bị lượt tiếp theo
+[11:13:57] [Luồng 1] Câu cá: trật rồi
+[11:13:58] [Luồng 1] Bắt đầu lượt câu mới
+[11:13:58] [Luồng 1] Gửi lệnh quăng câu
+[11:13:58] [Luồng 1] Bắt đầu câu cá
+[11:13:58] [Luồng 1] Đã quăng câu
+[11:14:09] [Luồng 1] Cá cắn câu: cá ngựa
+[11:14:10] [Luồng 1] Gửi kết quả câu cá
+[11:14:11] [Luồng 1] Chúc mừng bạn đã nhận được 1 Bánh Trung thu đậu đỏ. Số lượng 46/50
+[11:14:11] [Luồng 1] Đã câu được một con Cá Chim - Trị giá: 100 xu
+[11:14:11] [Luồng 1] Tiến trình nhiệm vụ thợ câu: cá chim 8/20
+[11:14:11] [Luồng 1] Kết thúc lượt câu, chuẩn bị lượt tiếp theo
+[11:14:11] [Luồng 1] Câu thành công cá chim
+[11:14:12] [Luồng 1] Bắt đầu lượt câu mới
+[11:14:12] [Luồng 1] Bắt đầu câu cá
+[11:14:12] [Luồng 1] Gửi lệnh quăng câu
+[11:14:12] [Luồng 1] Đã quăng câu
+[11:14:25] [Luồng 1] Gửi kết quả câu cá
+[11:14:25] [Luồng 1] Kết thúc lượt câu, chuẩn bị lượt tiếp theo
+[11:14:25] [Luồng 1] Câu cá: trật rồi
+[11:14:26] [Luồng 1] Bắt đầu lượt câu mới
+[11:14:27] [Luồng 1] Bắt đầu câu cá
+[11:14:27] [Luồng 1] Gửi lệnh quăng câu
+[11:14:27] [Luồng 1] Đã quăng câu
+[11:14:39] [Luồng 1] Cá cắn câu: cá ngựa
+[11:14:40] [Luồng 1] Gửi kết quả câu cá
+[11:14:40] [Luồng 1] Đã câu được một con Cá Chim - Trị giá: 100 xu
+[11:14:40] [Luồng 1] Tiến trình nhiệm vụ thợ câu: cá chim 9/20
+[11:14:40] [Luồng 1] Kết thúc lượt câu, chuẩn bị lượt tiếp theo
+[11:14:40] [Luồng 1] Câu thành công cá chim
+[11:14:42] [Luồng 1] Bắt đầu lượt câu mới
+[11:14:42] [Luồng 1] Bắt đầu câu cá
+[11:14:42] [Luồng 1] Gửi lệnh quăng câu
+[11:14:42] [Luồng 1] Đã quăng câu
+[11:14:56] [Luồng 1] Gửi kết quả câu cá
+[11:14:56] [Luồng 1] Kết thúc lượt câu, chuẩn bị lượt tiếp theo
+[11:14:56] [Luồng 1] Câu cá: trật rồi
+[11:14:57] [Luồng 1] Bắt đầu lượt câu mới
+[11:14:57] [Luồng 1] Bắt đầu câu cá
+[11:14:57] [Luồng 1] Gửi lệnh quăng câu
+[11:14:58] [Luồng 1] Đã quăng câu
