@@ -1,12 +1,21 @@
 package com.fishing.services;
 
 import com.fishing.models.FishingLogModel;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Owns all fishing workers and guarantees that Stop interrupts and joins them
+ * before the service reports itself stopped.
+ */
 public class FishingService {
-    private FishingLogModel logModel;
-    private AtomicBoolean isRunning;
-    private FishingCallback callback;
+    private final FishingLogModel logModel;
+    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final Object lifecycleLock = new Object();
+    private volatile Thread coordinator;
+    private volatile Thread unlimitedWorker;
+    private volatile Thread unclearWorker;
+    private volatile FishingCallback callback;
 
     public interface FishingCallback {
         void onLogUpdate(String log);
@@ -16,104 +25,132 @@ public class FishingService {
 
     public FishingService(FishingLogModel logModel) {
         this.logModel = logModel;
-        this.isRunning = new AtomicBoolean(false);
     }
 
     public void setCallback(FishingCallback callback) {
         this.callback = callback;
     }
 
-    /**
-     * Bắt đầu câu cá (chạy trên thread riêng)
-     */
     public void startFishing() {
-        if (isRunning.getAndSet(true)) {
-            return; // Đã chạy rồi
+        synchronized (lifecycleLock) {
+            if (running.get()) return;
+            running.set(true);
+
+            coordinator = new Thread(this::runFishing, "fishing-coordinator");
+            coordinator.setDaemon(true);
+            coordinator.start();
+        }
+    }
+
+    private void runFishing() {
+        Thread unlimited = createFishingThread("UNLIMITED", "Không giới hạn");
+        Thread unclear = createFishingThread("UNCLEAR", "Không rõ");
+        unlimitedWorker = unlimited;
+        unclearWorker = unclear;
+
+        try {
+            append("SYSTEM", "🎣 Bắt đầu câu cá...");
+            unlimited.start();
+            unclear.start();
+
+            unlimited.join();
+            unclear.join();
+
+            if (running.get()) {
+                append("SYSTEM", "✅ Kết thúc câu cá");
+                running.set(false);
+                notifyComplete();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            stopWorkersAndJoin();
+            synchronized (lifecycleLock) {
+                running.set(false);
+                coordinator = null;
+                unlimitedWorker = null;
+                unclearWorker = null;
+            }
+        }
+    }
+
+    public void stopFishing() {
+        synchronized (lifecycleLock) {
+            if (!running.get()) return;
+            append("SYSTEM", "⏹️ Người dùng bấm DỪNG");
+            running.set(false);
+            interruptWorkers();
+            Thread c = coordinator;
+            if (c != null && c != Thread.currentThread()) c.interrupt();
         }
 
-        Thread fishingThread = new Thread(() -> {
+        stopWorkersAndJoin();
+        append("SYSTEM", "⏹️ Đã dừng toàn bộ luồng câu cá");
+        notifyStop();
+    }
+
+    private void interruptWorkers() {
+        Thread a = unlimitedWorker;
+        Thread b = unclearWorker;
+        if (a != null) a.interrupt();
+        if (b != null) b.interrupt();
+    }
+
+    private void stopWorkersAndJoin() {
+        interruptWorkers();
+        joinQuietly(unlimitedWorker);
+        joinQuietly(unclearWorker);
+    }
+
+    private static void joinQuietly(Thread worker) {
+        if (worker == null || worker == Thread.currentThread()) return;
+        try {
+            worker.join(1500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private Thread createFishingThread(String stream, String streamName) {
+        return new Thread(() -> {
+            int attempt = 1;
             try {
-                logModel.addLog("SYSTEM", "🎣 Bắt đầu câu cá...");
-                if (callback != null) {
-                    callback.onLogUpdate("🎣 Bắt đầu câu cá...");
-                }
+                while (running.get() && !Thread.currentThread().isInterrupted()) {
+                    String log = String.format("🐟 [%s - Lần %d] Câu được cá", streamName, attempt++);
+                    append(stream, log);
 
-                // Giả lập 2 luồng câu cá khác nhau
-                Thread unlimitedThread = createFishingThread("UNLIMITED", "Không giới hạn");
-                Thread unclearThread = createFishingThread("UNCLEAR", "Không rõ");
-
-                unlimitedThread.start();
-                unclearThread.start();
-
-                unlimitedThread.join();
-                unclearThread.join();
-
-                logModel.addLog("SYSTEM", "✅ Kết thúc câu cá");
-                if (callback != null) {
-                    callback.onFishingComplete();
+                    // Do not leave a sleeping worker alive after Stop.
+                    Thread.sleep(2000);
                 }
             } catch (InterruptedException e) {
-                logModel.addLog("SYSTEM", "❌ Câu cá bị gián đoạn");
-                if (callback != null) {
-                    callback.onFishingStop();
-                }
+                Thread.currentThread().interrupt();
             } finally {
-                isRunning.set(false);
-            }
-        });
-
-        fishingThread.setDaemon(false);
-        fishingThread.start();
-    }
-
-    /**
-     * Dừng câu cá ngay lập tức
-     */
-    public void stopFishing() {
-        if (!isRunning.getAndSet(false)) {
-            return; // Không chạy
-        }
-
-        logModel.addLog("SYSTEM", "⏹️ Người dùng bấm DỪNG");
-        if (callback != null) {
-            callback.onFishingStop();
-        }
-    }
-
-    /**
-     * Tạo một luồng câu cá
-     */
-    private Thread createFishingThread(String type, String typeName) {
-        return new Thread(() -> {
-            for (int i = 1; i <= 10; i++) {
-                if (!isRunning.get()) {
-                    logModel.addLog(type, "⏹️ Dừng " + typeName);
-                    break;
-                }
-
-                String log = String.format("🐟 [%s - Lần %d] Câu được cá", typeName, i);
-                logModel.addLog(type, log);
-                
-                if (callback != null) {
-                    callback.onLogUpdate(log);
-                }
-
-                try {
-                    Thread.sleep(2000); // Chờ 2 giây giữa mỗi lần câu
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
+                // Only write completion for a real stop/finish; never enqueue more
+                // "fishing" work after running becomes false.
+                if (!running.get()) {
+                    append(stream, "⏹️ Dừng " + streamName);
                 }
             }
-
-            logModel.addLog(type, "📝 Nhật ký " + typeName + " hoàn thành");
-        });
+        }, "fishing-" + stream);
     }
 
-    /**
-     * Kiểm tra xem có đang chạy không
-     */
+    private void append(String stream, String message) {
+        String line = logModel.addLog(stream, message);
+        FishingCallback cb = callback;
+        if (cb != null) cb.onLogUpdate(line);
+    }
+
+    private void notifyComplete() {
+        FishingCallback cb = callback;
+        if (cb != null) cb.onFishingComplete();
+    }
+
+    private void notifyStop() {
+        FishingCallback cb = callback;
+        if (cb != null) cb.onFishingStop();
+    }
+
     public boolean isRunning() {
-        return isRunning.get();
+        return running.get();
     }
 }
