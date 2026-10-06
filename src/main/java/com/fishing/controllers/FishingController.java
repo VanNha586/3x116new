@@ -7,15 +7,14 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
 
 import java.net.URL;
 import java.util.List;
 import java.util.ResourceBundle;
 
 public class FishingController implements Initializable, FishingService.FishingCallback {
-    
     @FXML private TextArea logTextArea;
     @FXML private Button startButton;
     @FXML private Button stopButton;
@@ -29,126 +28,91 @@ public class FishingController implements Initializable, FishingService.FishingC
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        initializeComponents();
-        loadPreviousLogs();
-        setupEventHandlers();
-    }
-
-    /**
-     * Khởi tạo các thành phần UI
-     */
-    private void initializeComponents() {
         logModel = new FishingLogModel();
         fishingService = new FishingService(logModel);
         fishingService.setCallback(this);
 
-        if (logTextArea != null) {
-            logTextArea.setWrapText(true);
-            logTextArea.setStyle(
+        logTextArea.setWrapText(false);
+        logTextArea.setStyle(
                 "-fx-control-inner-background: #1e1e1e; " +
                 "-fx-text-fill: #00ff00; " +
                 "-fx-font-family: 'Courier New'; " +
                 "-fx-font-size: 11;"
-            );
-        }
+        );
 
-        if (stopButton != null) {
-            stopButton.setDisable(true);
-        }
+        stopButton.setDisable(true);
+        loadPreviousLogs();
         updateStatus();
     }
 
-    /**
-     * Load lại log cũ từ file (persistence)
-     */
     private void loadPreviousLogs() {
         List<String> previousLogs = logModel.getLogs();
-        Platform.runLater(() -> {
-            if (logTextArea != null) {
-                logTextArea.clear();
-                for (String log : previousLogs) {
-                    logTextArea.appendText(log + "\n");
-                }
-            }
-            updateLogCount();
-        });
-    }
-
-    /**
-     * Cài đặt các event handler cho button
-     */
-    private void setupEventHandlers() {
-        if (startButton != null) {
-            startButton.setOnAction(e -> handleStart());
+        logTextArea.clear();
+        for (String log : previousLogs) {
+            logTextArea.appendText(log);
+            logTextArea.appendText(System.lineSeparator());
         }
-        if (stopButton != null) {
-            stopButton.setOnAction(e -> handleStop());
-        }
-        if (clearButton != null) {
-            clearButton.setOnAction(e -> handleClear());
-        }
+        updateLogCount();
+        scrollToBottom();
     }
 
     private void handleStart() {
-        if (startButton != null) startButton.setDisable(true);
-        if (stopButton != null) stopButton.setDisable(false);
         fishingService.startFishing();
+        startButton.setDisable(fishingService.isRunning());
+        stopButton.setDisable(!fishingService.isRunning());
         updateStatus();
     }
 
     private void handleStop() {
+        stopButton.setDisable(true);
+        statusLabel.setText("Trạng thái: Đang dừng...");
         fishingService.stopFishing();
-        if (startButton != null) startButton.setDisable(false);
-        if (stopButton != null) stopButton.setDisable(true);
+        startButton.setDisable(false);
+        stopButton.setDisable(true);
         updateStatus();
     }
 
     private void handleClear() {
         logModel.clearLogs();
-        if (logTextArea != null) {
-            logTextArea.clear();
-        }
+        logTextArea.clear();
         updateLogCount();
     }
 
     private void updateStatus() {
         boolean running = fishingService.isRunning();
-        if (statusLabel != null) {
-            statusLabel.setText(running ? "Trạng thái: Đang chạy..." : "Trạng thái: Đang dừng");
-        }
+        statusLabel.setText(running ? "Trạng thái: Đang câu cá" : "Trạng thái: Đã dừng");
+        startButton.setDisable(running);
+        stopButton.setDisable(!running);
     }
 
     private void updateLogCount() {
-        if (logCountLabel != null) {
-            logCountLabel.setText("Tổng số log: " + logModel.getLogCount());
-        }
+        logCountLabel.setText("Tổng số log: " + logModel.getLogCount());
+    }
+
+    private void scrollToBottom() {
+        Platform.runLater(() -> {
+            logTextArea.positionCaret(logTextArea.getLength());
+            logTextArea.setScrollTop(Double.MAX_VALUE);
+        });
     }
 
     @Override
     public void onLogUpdate(String log) {
         Platform.runLater(() -> {
-            if (logTextArea != null) {
-                logTextArea.appendText(log + "\n");
-            }
+            logTextArea.appendText(log);
+            logTextArea.appendText(System.lineSeparator());
             updateLogCount();
+            scrollToBottom();
         });
     }
 
     @Override
     public void onFishingComplete() {
-        Platform.runLater(() -> {
-            if (startButton != null) startButton.setDisable(false);
-            if (stopButton != null) stopButton.setDisable(true);
-            updateStatus();
-        });
+        Platform.runLater(this::updateStatus);
     }
 
     @Override
     public void onFishingStop() {
-        Platform.runLater(() -> {
-            if (startButton != null) startButton.setDisable(false);
-            if (stopButton != null) stopButton.setDisable(true);
-            updateStatus();
-        });
+        Platform.runLater(this::updateStatus);
     }
 }
