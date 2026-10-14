@@ -148,6 +148,163 @@ public class TestDailyResetRuntime {
             self.assertEqual(run_res.returncode, 0, f"Execution failed:\n{run_res.stderr}\n{run_res.stdout}")
             self.assertIn("OK: Runtime daily reset verified successfully", run_res.stdout)
 
+    def test_multi_account_persistence_and_restore(self):
+        """Verify that fish counts and mission info are stored and restored per account."""
+        java_cmd = _find_java()
+        javac_cmd = _find_javac()
+
+        test_code = """
+package avt;
+
+import java.io.File;
+import java.util.Map;
+
+public class TestMultiAccountPersistence {
+    public static void main(String[] args) throws Exception {
+        // Clear maps
+        Map<Integer, Integer> counts = BypassHelper.getFishCountMap();
+        Map<Integer, String> missions = BypassHelper.getMissionDetailMap();
+        counts.clear();
+        missions.clear();
+
+        // Account 0
+        counts.put(Integer.valueOf(0), Integer.valueOf(15));
+        missions.put(Integer.valueOf(0), "Nhiệm Vụ Thợ Câu - 15 con cá rô");
+
+        // Account 1
+        counts.put(Integer.valueOf(1), Integer.valueOf(88));
+        missions.put(Integer.valueOf(1), "Nhiệm Vụ Thợ Câu - 88 con cá lóc");
+
+        // Save state
+        BypassHelper.persistStatePublic();
+
+        // Clear maps to simulate restarting tool
+        counts.clear();
+        missions.clear();
+
+        // Restore state
+        BypassHelper.restoreStatePublic();
+
+        // Check Account 0
+        Integer c0 = counts.get(Integer.valueOf(0));
+        String m0 = missions.get(Integer.valueOf(0));
+        if (c0 == null || c0.intValue() != 15) {
+            System.err.println("FAIL: Account 0 fish count mismatch: " + c0);
+            System.exit(1);
+        }
+        if (m0 == null || !m0.contains("15 con cá rô")) {
+            System.err.println("FAIL: Account 0 mission mismatch: " + m0);
+            System.exit(2);
+        }
+
+        // Check Account 1
+        Integer c1 = counts.get(Integer.valueOf(1));
+        String m1 = missions.get(Integer.valueOf(1));
+        if (c1 == null || c1.intValue() != 88) {
+            System.err.println("FAIL: Account 1 fish count mismatch: " + c1);
+            System.exit(3);
+        }
+        if (m1 == null || !m1.contains("88 con cá lóc")) {
+            System.err.println("FAIL: Account 1 mission mismatch: " + m1);
+            System.exit(4);
+        }
+
+        System.out.println("OK: Multi-account persistence verified successfully");
+    }
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            src_file = tmp_path / "TestMultiAccountPersistence.java"
+            src_file.write_text(test_code, encoding="utf-8")
+
+            compile_res = subprocess.run(
+                [javac_cmd, "--release", "8", "-cp", str(APP_JAR), "-d", str(tmp_path), str(src_file)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compile_res.returncode, 0, f"Compilation failed:\n{compile_res.stderr}")
+
+            run_res = subprocess.run(
+                [java_cmd, "-cp", f"{APP_JAR};{tmp_path}", "avt.TestMultiAccountPersistence"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(run_res.returncode, 0, f"Execution failed:\n{run_res.stderr}\n{run_res.stdout}")
+            self.assertIn("OK: Multi-account persistence verified successfully", run_res.stdout)
+
+    def test_fish_debounce_prevents_double_count(self):
+        """Verify that rapid successive log lines (within 3s) for the same account do not double count."""
+        java_cmd = _find_java()
+        javac_cmd = _find_javac()
+
+        test_code = """
+package avt;
+
+import java.util.Map;
+
+public class TestDebounceDoubleCount {
+    // Dummy bot class with hh field for account index and hl field for stopping flag
+    public static class FakeBot {
+        public int hh;
+        public boolean hl = false;
+        public FakeBot(int idx) {
+            this.hh = idx;
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Map<Integer, Integer> counts = BypassHelper.getFishCountMap();
+        counts.clear();
+
+        FakeBot bot0 = new FakeBot(0);
+        FakeBot bot1 = new FakeBot(1);
+
+        // Fire catch log for bot 0
+        BypassHelper.onBotLog(bot0, new Object[]{ "Câu thành công con Cá lóc - Trị giá 100 xu" });
+
+        // Rapid duplicate log for bot 0 (should be debounced!)
+        BypassHelper.onBotLog(bot0, new Object[]{ "Đã câu được một con cá lóc" });
+
+        // Bot 0 count should be 1, NOT 2
+        Integer c0 = counts.get(Integer.valueOf(0));
+        if (c0 == null || c0.intValue() != 1) {
+            System.err.println("FAIL: Bot 0 was double counted: " + c0);
+            System.exit(1);
+        }
+
+        // Fire catch log for bot 1 (different account, should not be blocked by bot 0)
+        BypassHelper.onBotLog(bot1, new Object[]{ "Câu thành công con Cá rô" });
+        Integer c1 = counts.get(Integer.valueOf(1));
+        if (c1 == null || c1.intValue() != 1) {
+            System.err.println("FAIL: Bot 1 was not counted: " + c1);
+            System.exit(2);
+        }
+
+        System.out.println("OK: Debounce prevented double count successfully");
+    }
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            src_file = tmp_path / "TestDebounceDoubleCount.java"
+            src_file.write_text(test_code, encoding="utf-8")
+
+            compile_res = subprocess.run(
+                [javac_cmd, "--release", "8", "-cp", str(APP_JAR), "-d", str(tmp_path), str(src_file)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compile_res.returncode, 0, f"Compilation failed:\n{compile_res.stderr}")
+
+            run_res = subprocess.run(
+                [java_cmd, "-cp", f"{APP_JAR};{tmp_path}", "avt.TestDebounceDoubleCount"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(run_res.returncode, 0, f"Execution failed:\n{run_res.stderr}\n{run_res.stdout}")
+            self.assertIn("OK: Debounce prevented double count successfully", run_res.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

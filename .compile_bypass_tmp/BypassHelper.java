@@ -54,6 +54,7 @@ public class BypassHelper implements Runnable {
     private static final Map<Integer, Object>           activeBotsByIndex = new ConcurrentHashMap<Integer, Object>();
     private static final Map<Integer, Integer>          fishCountMap      = new ConcurrentHashMap<Integer, Integer>();
     private static final Map<Integer, String>           missionDetailMap  = new ConcurrentHashMap<Integer, String>();
+    private static final Map<Integer, Long>             lastFishIncrementTime = new ConcurrentHashMap<Integer, Long>();
     private static volatile Object                      lastActiveBot     = null;
 
     // Tập hợp các bot đã được đánh dấu dừng để chặn log sau khi stop
@@ -61,6 +62,7 @@ public class BypassHelper implements Runnable {
 
     // Ngày hiện tại được ghi nhận để kiểm tra reset số cá theo ngày (Asia/Ho_Chi_Minh)
     private static volatile String                      lastStateDate     = null;
+    private static volatile boolean                     stateRestored     = false;
     private static final java.time.ZoneId               ZONE_VN           = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
 
     private static final Map<Object, Long>              lastQuangCauMap = new ConcurrentHashMap<Object, Long>();
@@ -85,6 +87,9 @@ public class BypassHelper implements Runnable {
     }
 
     public static synchronized void checkDailyReset() {
+        if (!stateRestored) {
+            restoreState();
+        }
         String today = getTodayDate();
         if (lastStateDate != null && !today.equals(lastStateDate)) {
             fishCountMap.clear();
@@ -109,6 +114,18 @@ public class BypassHelper implements Runnable {
 
     public static String getLastStateDate() {
         return lastStateDate;
+    }
+
+    public static Map<Integer, String> getMissionDetailMap() {
+        return missionDetailMap;
+    }
+
+    public static void restoreStatePublic() {
+        restoreState();
+    }
+
+    public static void persistStatePublic() {
+        persistState();
     }
 
     // Thực thi tác vụ định kỳ mỗi phút kiểm tra chuyển ngày (Asia/Ho_Chi_Minh)
@@ -172,13 +189,18 @@ public class BypassHelper implements Runnable {
                 int idx = fh.getInt(bot);
                 if (idx < 0) idx = 0;
 
-                // Cập nhật số cá câu được
+                // Cập nhật số cá câu được (chống double count / x2 bằng cooldown 3s)
                 if (msg.contains("Câu thành công") || msg.contains("Đã câu được một con")) {
-                    Integer cur = fishCountMap.get(Integer.valueOf(idx));
-                    int newCount = (cur != null ? cur.intValue() : 0) + 1;
-                    fishCountMap.put(Integer.valueOf(idx), Integer.valueOf(newCount));
-                    // Lưu ngay khi có cá mới để không mất khi tool tắt đột ngột
-                    persistState();
+                    long now = System.currentTimeMillis();
+                    Long lastTime = lastFishIncrementTime.get(Integer.valueOf(idx));
+                    if (lastTime == null || now - lastTime.longValue() >= 3000L) {
+                        lastFishIncrementTime.put(Integer.valueOf(idx), Long.valueOf(now));
+                        Integer cur = fishCountMap.get(Integer.valueOf(idx));
+                        int newCount = (cur != null ? cur.intValue() : 0) + 1;
+                        fishCountMap.put(Integer.valueOf(idx), Integer.valueOf(newCount));
+                        // Lưu ngay khi có cá mới để không mất khi tool tắt đột ngột
+                        persistState();
+                    }
                 }
 
                 // Cập nhật thông tin chi tiết nhiệm vụ thợ câu
@@ -276,49 +298,82 @@ public class BypassHelper implements Runnable {
             root.put("missions", missions);
 
             String json = root.z(new Object[0]);
-            File stateFile = new File(STATE_FILE);
-            stateFile.getParentFile().mkdirs();
-            File tmp = new File(STATE_FILE + ".tmp");
-            try (OutputStreamWriter w = new OutputStreamWriter(
-                    new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
-                w.write(json);
-            }
-            tmp.renameTo(stateFile);
+            // Ghi vào cả data/ và app/data/ để đảm bảo dù mở tool từ thư mục nào cũng có dữ liệu
+            File f1 = new File("data/bot-state.json");
+            File f2 = new File("app/data/bot-state.json");
+            writeStateToFile(f1, json);
+            writeStateToFile(f2, json);
         } catch (Throwable t) {
             // Không throw - lưu state là best-effort
         }
     }
 
+    private static void writeStateToFile(File stateFile, String json) {
+        try {
+            File parent = stateFile.getParentFile();
+            if (parent != null) parent.mkdirs();
+            File tmp = new File(stateFile.getPath() + ".tmp");
+            try (OutputStreamWriter w = new OutputStreamWriter(
+                    new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
+                w.write(json);
+            }
+            try {
+                Files.move(tmp.toPath(), stateFile.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (Throwable t1) {
+                Files.move(tmp.toPath(), stateFile.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Throwable ignored) {}
+    }
+
     /**
      * Khôi phục fishCountMap và missionDetailMap từ file JSON khi khởi động.
      * Nếu ngày lưu khác ngày hiện tại, reset fishCountMap về 0.
-     * Dùng reflection để gọi parser vì tên phương thức bị obfuscate.
+     * Hỗ trợ đa tài khoản theo index slot (0, 1, 2, ...).
      */
     @SuppressWarnings("unchecked")
-    static void restoreState() {
+    static synchronized void restoreState() {
+        stateRestored = true;
         try {
             String today = getTodayDate();
             lastStateDate = today;
 
-            File stateFile = new File(STATE_FILE);
-            if (!stateFile.exists()) return;
-            byte[] bytes = Files.readAllBytes(Paths.get(STATE_FILE));
+            File fileToRead = null;
+            File[] candidates = new File[]{
+                new File("app/data/bot-state.json"),
+                new File("app/data/bot-state.json.tmp"),
+                new File("data/bot-state.json"),
+                new File("data/bot-state.json.tmp")
+            };
+            long maxMod = -1;
+            for (File c : candidates) {
+                if (c.exists() && c.length() > 10 && c.lastModified() > maxMod) {
+                    maxMod = c.lastModified();
+                    fileToRead = c;
+                }
+            }
+            if (fileToRead == null) return;
+            byte[] bytes = Files.readAllBytes(fileToRead.toPath());
             String json = new String(bytes, StandardCharsets.UTF_8).trim();
             if (json.isEmpty()) return;
 
-            // Tìm phương thức parse(String) trong parser bằng reflection
-            // vì tên phương thức đã bị obfuscate
+            // Gọi phương thức parser.g(Object[]) của thư viện json-simple đã obfuscate
             Object root = null;
             org.json.simple.parser.J parser = new org.json.simple.parser.J();
-            for (Method m : parser.getClass().getDeclaredMethods()) {
-                Class<?>[] params = m.getParameterTypes();
-                if (params.length == 1 && params[0] == String.class
-                        && Object.class.isAssignableFrom(m.getReturnType())) {
-                    try {
-                        m.setAccessible(true);
-                        root = m.invoke(parser, json);
-                        break;
-                    } catch (Throwable ignored) {}
+            try {
+                root = parser.g(new Object[]{ json });
+            } catch (Throwable t1) {
+                for (Method m : parser.getClass().getDeclaredMethods()) {
+                    if (m.getParameterTypes().length == 1 && m.getParameterTypes()[0] == Object[].class
+                            && Object.class.isAssignableFrom(m.getReturnType())) {
+                        try {
+                            m.setAccessible(true);
+                            root = m.invoke(parser, new Object[]{ new Object[]{ json } });
+                            if (root instanceof S) break;
+                        } catch (Throwable ignored) {}
+                    }
                 }
             }
             if (!(root instanceof S)) return;
@@ -852,6 +907,21 @@ public class BypassHelper implements Runnable {
                 if (botIdx < 0) botIdx = 0;
             } catch (Throwable t) {}
 
+            if (acc != null) {
+                try {
+                    for (Field f : acc.getClass().getDeclaredFields()) {
+                        if (f.getName().equalsIgnoreCase("dailyFishLimit") || f.getName().toLowerCase().contains("limit")) {
+                            f.setAccessible(true);
+                            Object v = f.get(acc);
+                            if (v instanceof Number && ((Number) v).intValue() > 0) {
+                                fishLimit = ((Number) v).intValue();
+                                break;
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+
             checkDailyReset();
 
             Integer trackedCount = fishCountMap.get(Integer.valueOf(botIdx));
@@ -865,7 +935,7 @@ public class BypassHelper implements Runnable {
                     if (zVal != null) {
                         String log = zVal.toString();
                         int c = 0;
-                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("C[^\n]*?u th[^\n]*?nh c[^\n]*?ng|con C[^\n]*? - Tr[^\n]*? gi").matcher(log);
+                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("C[^\n]*?u th[^\n]*?nh c[^\n]*?ng").matcher(log);
                         while (m.find()) {
                             c++;
                         }
@@ -1008,9 +1078,46 @@ public class BypassHelper implements Runnable {
                             S info = buildInfoFromBot(bot, acc);
                             jsonAcc.put("info", info);
                         } else {
-                            if (jsonAcc.get("info") == null) {
-                                jsonAcc.put("info", new S());
+                            S info = (S) jsonAcc.get("info");
+                            if (info == null) {
+                                info = new S();
+                                jsonAcc.put("info", info);
                             }
+                            int savedCount = 0;
+                            Integer countVal = fishCountMap.get(Integer.valueOf(i));
+                            if (countVal != null) savedCount = Math.max(0, countVal.intValue());
+                            info.put("dailyFishCount", savedCount);
+
+                            int fishLimit = 550;
+                            Object limitObj = jsonAcc.get("dailyFishLimit");
+                            if (limitObj instanceof Number && ((Number) limitObj).intValue() > 0) {
+                                fishLimit = ((Number) limitObj).intValue();
+                            } else if (acc != null) {
+                                try {
+                                    for (Field f : acc.getClass().getDeclaredFields()) {
+                                        if (f.getName().equalsIgnoreCase("dailyFishLimit") || f.getName().toLowerCase().contains("limit")) {
+                                            f.setAccessible(true);
+                                            Object v = f.get(acc);
+                                            if (v instanceof Number && ((Number) v).intValue() > 0) {
+                                                fishLimit = ((Number) v).intValue();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                } catch (Throwable ignored) {}
+                            }
+                            info.put("dailyFishLimit", fishLimit);
+
+                            String savedMission = missionDetailMap.get(Integer.valueOf(i));
+                            if (savedMission != null && !savedMission.trim().isEmpty() && !savedMission.equals("3.2.2")) {
+                                info.put("currentMission", savedMission.trim());
+                            } else {
+                                info.put("currentMission", "Chưa có thông tin nhiệm vụ (sẽ tự động cập nhật khi bot chạy)");
+                            }
+                            if (info.get("xu") == null) info.put("xu", "0");
+                            if (info.get("luong") == null) info.put("luong", "0");
+                            if (info.get("luongKhoa") == null) info.put("luongKhoa", "0");
+                            if (info.get("farmReturnAt") == null) info.put("farmReturnAt", 0L);
                         }
                         
                         jsonAcc.put("isRunning", isRunning);
