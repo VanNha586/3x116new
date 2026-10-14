@@ -277,13 +277,24 @@ public class BypassHelper implements Runnable {
 
             String json = root.z(new Object[0]);
             File stateFile = new File(STATE_FILE);
-            stateFile.getParentFile().mkdirs();
-            File tmp = new File(STATE_FILE + ".tmp");
+            if (!stateFile.exists() && new File("app/" + STATE_FILE).exists()) {
+                stateFile = new File("app/" + STATE_FILE);
+            }
+            File parent = stateFile.getParentFile();
+            if (parent != null) parent.mkdirs();
+            File tmp = new File(stateFile.getPath() + ".tmp");
             try (OutputStreamWriter w = new OutputStreamWriter(
                     new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
                 w.write(json);
             }
-            tmp.renameTo(stateFile);
+            try {
+                Files.move(tmp.toPath(), stateFile.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (Throwable t1) {
+                Files.move(tmp.toPath(), stateFile.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (Throwable t) {
             // Không throw - lưu state là best-effort
         }
@@ -301,8 +312,18 @@ public class BypassHelper implements Runnable {
             lastStateDate = today;
 
             File stateFile = new File(STATE_FILE);
-            if (!stateFile.exists()) return;
-            byte[] bytes = Files.readAllBytes(Paths.get(STATE_FILE));
+            if (!stateFile.exists() && new File("app/" + STATE_FILE).exists()) {
+                stateFile = new File("app/" + STATE_FILE);
+            }
+            File tmpFile = new File(stateFile.getPath() + ".tmp");
+            File fileToRead = stateFile;
+            if (!stateFile.exists() && tmpFile.exists()) {
+                fileToRead = tmpFile;
+            } else if (stateFile.exists() && tmpFile.exists() && tmpFile.lastModified() > stateFile.lastModified()) {
+                fileToRead = tmpFile;
+            }
+            if (!fileToRead.exists()) return;
+            byte[] bytes = Files.readAllBytes(fileToRead.toPath());
             String json = new String(bytes, StandardCharsets.UTF_8).trim();
             if (json.isEmpty()) return;
 

@@ -55,6 +55,13 @@ class DailyResetRegressionTests(unittest.TestCase):
         self.assertIn("public class BypassHelper implements Runnable", content)
         self.assertIn("checkDailyReset()", content)
 
+    def test_source_contains_safe_persistence_logic(self):
+        """Verify BypassHelper.java uses REPLACE_EXISTING move to safely overwrite on Windows."""
+        content = HELPER_SRC.read_text(encoding="utf-8")
+        self.assertIn("REPLACE_EXISTING", content)
+        self.assertIn("StandardCopyOption", content)
+        self.assertIn(".tmp", content)
+
     def test_patch_bypass_state_check_passes(self):
         """Verify patch_bypass_state.py --check reports valid daily-reset patch."""
         script = ROOT / "tools" / "patch_bypass_state.py"
