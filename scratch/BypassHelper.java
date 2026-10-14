@@ -22,7 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-public class BypassHelper {
+public class BypassHelper implements Runnable {
     private static Field fE;
     private static Field fc;
     private static Field fW;
@@ -59,6 +59,10 @@ public class BypassHelper {
     // Tập hợp các bot đã được đánh dấu dừng để chặn log sau khi stop
     private static final Set<Integer> stoppedBotIndices = ConcurrentHashMap.newKeySet();
 
+    // Ngày hiện tại được ghi nhận để kiểm tra reset số cá theo ngày (Asia/Ho_Chi_Minh)
+    private static volatile String                      lastStateDate     = null;
+    private static final java.time.ZoneId               ZONE_VN           = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+
     private static final Map<Object, Long>              lastQuangCauMap = new ConcurrentHashMap<Object, Long>();
     private static final Map<Object, Long>              lastSrMap       = new ConcurrentHashMap<Object, Long>();
     private static final Map<Object, ScheduledFuture<?>> pendingCastMap  = new ConcurrentHashMap<Object, ScheduledFuture<?>>();
@@ -70,7 +74,52 @@ public class BypassHelper {
         }
     });
 
-    // Tự động lưu state khi JVM thoát
+    public static String getTodayDate() {
+        try {
+            return java.time.LocalDate.now(ZONE_VN).toString();
+        } catch (Throwable t) {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+            return sdf.format(new java.util.Date());
+        }
+    }
+
+    public static synchronized void checkDailyReset() {
+        String today = getTodayDate();
+        if (lastStateDate != null && !today.equals(lastStateDate)) {
+            fishCountMap.clear();
+            for (Integer idx : activeBotsByIndex.keySet()) {
+                fishCountMap.put(idx, Integer.valueOf(0));
+            }
+            lastStateDate = today;
+            persistState();
+        } else if (lastStateDate == null) {
+            lastStateDate = today;
+        }
+    }
+
+    // Helper methods cho test & quản trị
+    public static Map<Integer, Integer> getFishCountMap() {
+        return fishCountMap;
+    }
+
+    public static void setLastStateDateForTest(String date) {
+        lastStateDate = date;
+    }
+
+    public static String getLastStateDate() {
+        return lastStateDate;
+    }
+
+    // Thực thi tác vụ định kỳ mỗi phút kiểm tra chuyển ngày (Asia/Ho_Chi_Minh)
+    @Override
+    public void run() {
+        try {
+            checkDailyReset();
+        } catch (Throwable ignored) {}
+    }
+
+    // Tự động lưu state khi JVM thoát và lên lịch kiểm tra reset ngày mỗi phút
     static {
         Runtime.getRuntime().addShutdownHook(new Thread("BypassHelper-StateWriter") {
             public void run() {
@@ -78,6 +127,7 @@ public class BypassHelper {
             }
         });
         restoreState();
+        castScheduler.scheduleAtFixedRate(new BypassHelper(), 1, 1, TimeUnit.MINUTES);
     }
 
     public static void registerActiveBot(Object bot) {
@@ -103,6 +153,7 @@ public class BypassHelper {
 
     public static void onBotLog(Object bot, Object[] args) {
         if (bot == null || isBotStopped(bot)) return;
+        checkDailyReset();
         // Kiểm tra thêm stoppedBotIndices để chặn log đã được enqueue từ trước lệnh stop
         try {
             Field fhCheck = bot.getClass().getDeclaredField("hh");
@@ -203,12 +254,15 @@ public class BypassHelper {
     }
 
     /**
-     * Lưu fishCountMap và missionDetailMap vào file JSON để khôi phục khi mở lại tool.
+     * Lưu fishCountMap, missionDetailMap và stateDate vào file JSON để khôi phục khi mở lại tool.
      * Ghi theo cơ chế atomic (ghi file tạm rồi rename) để tránh corrupt khi tắt đột ngột.
      */
     static void persistState() {
         try {
+            String today = (lastStateDate != null) ? lastStateDate : getTodayDate();
             S root = new S();
+            root.put("stateDate", today);
+
             S counts = new S();
             for (Map.Entry<Integer, Integer> e : fishCountMap.entrySet()) {
                 counts.put(e.getKey().toString(), e.getValue());
@@ -237,11 +291,15 @@ public class BypassHelper {
 
     /**
      * Khôi phục fishCountMap và missionDetailMap từ file JSON khi khởi động.
+     * Nếu ngày lưu khác ngày hiện tại, reset fishCountMap về 0.
      * Dùng reflection để gọi parser vì tên phương thức bị obfuscate.
      */
     @SuppressWarnings("unchecked")
     static void restoreState() {
         try {
+            String today = getTodayDate();
+            lastStateDate = today;
+
             File stateFile = new File(STATE_FILE);
             if (!stateFile.exists()) return;
             byte[] bytes = Files.readAllBytes(Paths.get(STATE_FILE));
@@ -266,18 +324,27 @@ public class BypassHelper {
             if (!(root instanceof S)) return;
             S rootMap = (S) root;
 
-            Object countsObj = rootMap.get("fishCounts");
-            if (countsObj instanceof S) {
-                S counts = (S) countsObj;
-                for (Object key : counts.keySet()) {
-                    try {
-                        int idx = Integer.parseInt(key.toString());
-                        Object val = counts.get(key);
-                        if (val instanceof Number) {
-                            fishCountMap.put(Integer.valueOf(idx), ((Number) val).intValue());
-                        }
-                    } catch (Throwable ignored) {}
+            Object dateObj = rootMap.get("stateDate");
+            String savedDate = (dateObj != null) ? dateObj.toString().trim() : null;
+            boolean isSameDay = today.equals(savedDate);
+
+            if (isSameDay) {
+                Object countsObj = rootMap.get("fishCounts");
+                if (countsObj instanceof S) {
+                    S counts = (S) countsObj;
+                    for (Object key : counts.keySet()) {
+                        try {
+                            int idx = Integer.parseInt(key.toString());
+                            Object val = counts.get(key);
+                            if (val instanceof Number) {
+                                fishCountMap.put(Integer.valueOf(idx), ((Number) val).intValue());
+                            }
+                        } catch (Throwable ignored) {}
+                    }
                 }
+            } else {
+                fishCountMap.clear();
+                persistState();
             }
 
             Object missionsObj = rootMap.get("missions");
@@ -785,11 +852,13 @@ public class BypassHelper {
                 if (botIdx < 0) botIdx = 0;
             } catch (Throwable t) {}
 
+            checkDailyReset();
+
             Integer trackedCount = fishCountMap.get(Integer.valueOf(botIdx));
-            if (trackedCount != null && trackedCount.intValue() > 0) {
-                fishCount = trackedCount.intValue();
+            if (trackedCount != null) {
+                fishCount = Math.max(0, trackedCount.intValue());
             } else {
-                // Đếm số lần câu thành công từ log bot.z nếu có
+                // Đếm số lần câu thành công từ log bot.z nếu có (khi bot chưa được tracking)
                 try {
                     Field fz = kClass.getDeclaredField("z"); fz.setAccessible(true);
                     Object zVal = fz.get(bot);
@@ -800,10 +869,8 @@ public class BypassHelper {
                         while (m.find()) {
                             c++;
                         }
-                        if (c > 0) {
-                            fishCount = c;
-                            fishCountMap.put(Integer.valueOf(botIdx), Integer.valueOf(fishCount));
-                        }
+                        fishCount = c;
+                        fishCountMap.put(Integer.valueOf(botIdx), Integer.valueOf(fishCount));
                     }
                 } catch (Throwable t) {}
             }
@@ -857,6 +924,7 @@ public class BypassHelper {
     }
 
     public static String getStateJson(Object[] args) {
+        checkDailyReset();
         apply();
         try {
             S root = new S();
