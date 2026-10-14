@@ -170,10 +170,20 @@ public class TestMultiAccountPersistence {
         // Account 0
         counts.put(Integer.valueOf(0), Integer.valueOf(15));
         missions.put(Integer.valueOf(0), "Nhiệm Vụ Thợ Câu - 15 con cá rô");
+        Map<String, Object> stats0 = new java.util.HashMap<String, Object>();
+        stats0.put("character", "Nhaxit");
+        stats0.put("level", Integer.valueOf(35));
+        stats0.put("xu", "1,000,000");
+        BypassHelper.getAccountInfoMap().put(Integer.valueOf(0), stats0);
 
         // Account 1
         counts.put(Integer.valueOf(1), Integer.valueOf(88));
         missions.put(Integer.valueOf(1), "Nhiệm Vụ Thợ Câu - 88 con cá lóc");
+        Map<String, Object> stats1 = new java.util.HashMap<String, Object>();
+        stats1.put("character", "ProFisher");
+        stats1.put("level", Integer.valueOf(40));
+        stats1.put("xu", "5,000,000");
+        BypassHelper.getAccountInfoMap().put(Integer.valueOf(1), stats1);
 
         // Save state
         BypassHelper.persistStatePublic();
@@ -181,6 +191,7 @@ public class TestMultiAccountPersistence {
         // Clear maps to simulate restarting tool
         counts.clear();
         missions.clear();
+        BypassHelper.getAccountInfoMap().clear();
 
         // Restore state
         BypassHelper.restoreStatePublic();
@@ -188,6 +199,7 @@ public class TestMultiAccountPersistence {
         // Check Account 0
         Integer c0 = counts.get(Integer.valueOf(0));
         String m0 = missions.get(Integer.valueOf(0));
+        Map<String, Object> rStats0 = BypassHelper.getAccountInfoMap().get(Integer.valueOf(0));
         if (c0 == null || c0.intValue() != 15) {
             System.err.println("FAIL: Account 0 fish count mismatch: " + c0);
             System.exit(1);
@@ -196,17 +208,26 @@ public class TestMultiAccountPersistence {
             System.err.println("FAIL: Account 0 mission mismatch: " + m0);
             System.exit(2);
         }
+        if (rStats0 == null || !"Nhaxit".equals(rStats0.get("character"))) {
+            System.err.println("FAIL: Account 0 stats mismatch: " + rStats0);
+            System.exit(3);
+        }
 
         // Check Account 1
         Integer c1 = counts.get(Integer.valueOf(1));
         String m1 = missions.get(Integer.valueOf(1));
+        Map<String, Object> rStats1 = BypassHelper.getAccountInfoMap().get(Integer.valueOf(1));
         if (c1 == null || c1.intValue() != 88) {
             System.err.println("FAIL: Account 1 fish count mismatch: " + c1);
-            System.exit(3);
+            System.exit(4);
         }
         if (m1 == null || !m1.contains("88 con cá lóc")) {
             System.err.println("FAIL: Account 1 mission mismatch: " + m1);
-            System.exit(4);
+            System.exit(5);
+        }
+        if (rStats1 == null || !"ProFisher".equals(rStats1.get("character"))) {
+            System.err.println("FAIL: Account 1 stats mismatch: " + rStats1);
+            System.exit(6);
         }
 
         System.out.println("OK: Multi-account persistence verified successfully");

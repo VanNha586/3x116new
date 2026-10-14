@@ -54,6 +54,7 @@ public class BypassHelper implements Runnable {
     private static final Map<Integer, Object>           activeBotsByIndex = new ConcurrentHashMap<Integer, Object>();
     private static final Map<Integer, Integer>          fishCountMap      = new ConcurrentHashMap<Integer, Integer>();
     private static final Map<Integer, String>           missionDetailMap  = new ConcurrentHashMap<Integer, String>();
+    private static final Map<Integer, Map<String, Object>> accountInfoMap = new ConcurrentHashMap<Integer, Map<String, Object>>();
     private static final Map<Integer, Long>             lastFishIncrementTime = new ConcurrentHashMap<Integer, Long>();
     private static volatile Object                      lastActiveBot     = null;
 
@@ -118,6 +119,10 @@ public class BypassHelper implements Runnable {
 
     public static Map<Integer, String> getMissionDetailMap() {
         return missionDetailMap;
+    }
+
+    public static Map<Integer, Map<String, Object>> getAccountInfoMap() {
+        return accountInfoMap;
     }
 
     public static void restoreStatePublic() {
@@ -297,12 +302,29 @@ public class BypassHelper implements Runnable {
             }
             root.put("missions", missions);
 
+            S accStats = new S();
+            for (Map.Entry<Integer, Map<String, Object>> e : accountInfoMap.entrySet()) {
+                S s = new S();
+                for (Map.Entry<String, Object> se : e.getValue().entrySet()) {
+                    s.put(se.getKey(), se.getValue());
+                }
+                accStats.put(e.getKey().toString(), s);
+            }
+            root.put("accountStats", accStats);
+
             String json = root.z(new Object[0]);
-            // Ghi vào cả data/ và app/data/ để đảm bảo dù mở tool từ thư mục nào cũng có dữ liệu
-            File f1 = new File("data/bot-state.json");
-            File f2 = new File("app/data/bot-state.json");
-            writeStateToFile(f1, json);
-            writeStateToFile(f2, json);
+            // Ghi vào cả data/ và app/data/ tự động nhận biết thư mục chạy
+            writeStateToFile(new File("data/bot-state.json"), json);
+            File curDir = new File(".").getAbsoluteFile();
+            if (curDir.getName().equalsIgnoreCase("app")) {
+                File parent = curDir.getParentFile();
+                if (parent != null) {
+                    writeStateToFile(new File(parent, "data/bot-state.json"), json);
+                    writeStateToFile(new File(parent, "app/data/bot-state.json"), json);
+                }
+            } else {
+                writeStateToFile(new File("app/data/bot-state.json"), json);
+            }
         } catch (Throwable t) {
             // Không throw - lưu state là best-effort
         }
@@ -329,7 +351,7 @@ public class BypassHelper implements Runnable {
     }
 
     /**
-     * Khôi phục fishCountMap và missionDetailMap từ file JSON khi khởi động.
+     * Khôi phục fishCountMap, missionDetailMap và accountInfoMap từ file JSON khi khởi động.
      * Nếu ngày lưu khác ngày hiện tại, reset fishCountMap về 0.
      * Hỗ trợ đa tài khoản theo index slot (0, 1, 2, ...).
      */
@@ -342,10 +364,12 @@ public class BypassHelper implements Runnable {
 
             File fileToRead = null;
             File[] candidates = new File[]{
+                new File("data/bot-state.json"),
+                new File("data/bot-state.json.tmp"),
                 new File("app/data/bot-state.json"),
                 new File("app/data/bot-state.json.tmp"),
-                new File("data/bot-state.json"),
-                new File("data/bot-state.json.tmp")
+                new File("../data/bot-state.json"),
+                new File("../app/data/bot-state.json")
             };
             long maxMod = -1;
             for (File c : candidates) {
@@ -411,6 +435,26 @@ public class BypassHelper implements Runnable {
                         Object val = missions.get(key);
                         if (val != null) {
                             missionDetailMap.put(Integer.valueOf(idx), val.toString());
+                        }
+                    } catch (Throwable ignored) {}
+                }
+            }
+
+            Object statsObj = rootMap.get("accountStats");
+            if (statsObj instanceof S) {
+                S statsMap = (S) statsObj;
+                for (Object key : statsMap.keySet()) {
+                    try {
+                        int idx = Integer.parseInt(key.toString());
+                        Object val = statsMap.get(key);
+                        if (val instanceof S) {
+                            S s = (S) val;
+                            Map<String, Object> map = new ConcurrentHashMap<String, Object>();
+                            for (Object k : s.keySet()) {
+                                Object item = s.get(k);
+                                if (item != null) map.put(k.toString(), item);
+                            }
+                            accountInfoMap.put(Integer.valueOf(idx), map);
                         }
                     } catch (Throwable ignored) {}
                 }
@@ -987,6 +1031,22 @@ public class BypassHelper implements Runnable {
             }
             info.put("currentMission", currentMission);
 
+            // Lưu thông tin nhân vật, xu, lượng, level vào accountInfoMap để khôi phục khi mở lại tool
+            Map<String, Object> stats = accountInfoMap.get(Integer.valueOf(botIdx));
+            if (stats == null) {
+                stats = new ConcurrentHashMap<String, Object>();
+                accountInfoMap.put(Integer.valueOf(botIdx), stats);
+            }
+            if (charName != null && !charName.trim().isEmpty()) stats.put("character", charName.trim());
+            if (level > 0) {
+                stats.put("level", Integer.valueOf(level));
+                stats.put("levelPercent", Integer.valueOf(levelPercent >= 0 ? levelPercent : 0));
+            }
+            if (info.get("xu") != null) stats.put("xu", info.get("xu"));
+            if (info.get("luong") != null) stats.put("luong", info.get("luong"));
+            if (info.get("luongKhoa") != null) stats.put("luongKhoa", info.get("luongKhoa"));
+            persistState();
+
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -1037,6 +1097,12 @@ public class BypassHelper implements Runnable {
                     Object uName = fnField.get(acc);
                     if (uName != null) selectedAccount = uName.toString();
                 } catch (Throwable t) {}
+            }
+            if (selectedAccount == null || selectedAccount.equals("-") || selectedAccount.trim().isEmpty()) {
+                Map<String, Object> stats = accountInfoMap.get(Integer.valueOf(selectedIndex));
+                if (stats != null && stats.get("character") != null) {
+                    selectedAccount = stats.get("character").toString();
+                }
             }
             root.put("selectedAccount", selectedAccount);
 
@@ -1118,6 +1184,18 @@ public class BypassHelper implements Runnable {
                             if (info.get("luong") == null) info.put("luong", "0");
                             if (info.get("luongKhoa") == null) info.put("luongKhoa", "0");
                             if (info.get("farmReturnAt") == null) info.put("farmReturnAt", 0L);
+
+                            // Khôi phục character, level, levelPercent, xu, luong, luongKhoa đã lưu
+                            Map<String, Object> stats = accountInfoMap.get(Integer.valueOf(i));
+                            if (stats != null) {
+                                if (stats.get("character") != null) info.put("character", stats.get("character"));
+                                if (stats.get("level") != null) info.put("level", stats.get("level"));
+                                if (stats.get("levelPercent") != null) info.put("levelPercent", stats.get("levelPercent"));
+                                if (stats.get("xu") != null) info.put("xu", stats.get("xu"));
+                                if (stats.get("luong") != null) info.put("luong", stats.get("luong"));
+                                if (stats.get("luongKhoa") != null) info.put("luongKhoa", stats.get("luongKhoa"));
+                            }
+                            if (info.get("character") == null) info.put("character", "-");
                         }
                         
                         jsonAcc.put("isRunning", isRunning);
