@@ -53,6 +53,9 @@ def _find_javac() -> str:
 def _compile_bypass_helper(jar_path: Path) -> Dict[str, bytes]:
     """Compile BypassHelper.java against the given JAR and return class bytes."""
     javac = _find_javac()
+    if COMPILE_TMP.exists():
+        import shutil
+        shutil.rmtree(COMPILE_TMP)
     COMPILE_TMP.mkdir(parents=True, exist_ok=True)
 
     # Copy source to compile dir (javac wants it in the right place)
@@ -98,10 +101,16 @@ def _has_stopped_bot_indices_field(class_bytes: bytes) -> bool:
     return b"stoppedBotIndices" in class_bytes
 
 
+def _has_daily_reset_support(class_bytes: bytes) -> bool:
+    """Check if daily reset logic (checkDailyReset and stateDate) is present."""
+    return b"checkDailyReset" in class_bytes and b"stateDate" in class_bytes
+
+
 def patch_jar(
     source: Path,
     destination: Optional[Path] = None,
     check_only: bool = False,
+    force: bool = False,
 ) -> int:
     """Apply (or verify) the BypassHelper state-persistence patch.
 
@@ -121,16 +130,23 @@ def patch_jar(
         raise PatchError(f"{source} does not contain {main_class_key}")
 
     # Check if already patched
-    already_patched = _has_stopped_bot_indices_field(contents[main_class_key])
+    has_stop_patch = _has_stopped_bot_indices_field(contents[main_class_key])
+    has_daily_reset = _has_daily_reset_support(contents[main_class_key])
+    already_patched = has_stop_patch and has_daily_reset
 
     if check_only:
         if not already_patched:
+            missing = []
+            if not has_stop_patch:
+                missing.append("stoppedBotIndices")
+            if not has_daily_reset:
+                missing.append("checkDailyReset/stateDate")
             raise PatchError(
-                f"{source} is missing the stoppedBotIndices state-persistence patch"
+                f"{source} is missing patch: {', '.join(missing)}"
             )
         return 0
 
-    if already_patched and source.resolve() == destination.resolve():
+    if not force and already_patched and source.resolve() == destination.resolve():
         return 0
 
     # Compile fresh classes
@@ -166,6 +182,15 @@ def patch_jar(
                     # New class file added by compilation
                     out.writestr(key, data, compress_type=zipfile.ZIP_DEFLATED)
         os.replace(tmp_path, destination)
+        # Apply stop flag & guards to the freshly compiled BypassHelper classes
+        try:
+            tools_dir = Path(__file__).resolve().parent
+            if str(tools_dir) not in sys.path:
+                sys.path.insert(0, str(tools_dir))
+            import patch_stop_flag
+            patch_stop_flag.patch_jar(destination)
+        except Exception as e:
+            print(f"  warning: failed to apply stop-flag guards: {e}", file=sys.stderr)
     finally:
         if tmp_path.exists():
             tmp_path.unlink()
@@ -187,20 +212,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--output", type=Path,
         help="Write to a different JAR instead of patching in place"
     )
+    parser.add_argument(
+        "--force", action="store_true",
+        help="Recompile and apply patch even if already detected"
+    )
     args = parser.parse_args(argv)
 
     try:
-        count = patch_jar(args.jar, args.output, check_only=args.check)
+        count = patch_jar(args.jar, args.output, check_only=args.check, force=args.force)
     except (PatchError, OSError, zipfile.BadZipFile) as err:
         print(f"error: {err}", file=sys.stderr)
         return 1
 
     if args.check:
-        print(f"OK: {args.jar} has the state-persistence patch (stoppedBotIndices present)")
+        print(f"OK: {args.jar} has the state-persistence & daily-reset patch")
     elif count:
         print(
             f"Patched {count} BypassHelper class file(s) in {args.output or args.jar}\n"
             f"  + fishCount/mission state persists to data/bot-state.json on exit\n"
+            f"  + daily reset of fish counts on new day / midnight (Asia/Ho_Chi_Minh)\n"
             f"  + stoppedBotIndices blocks queued log lines after Stop\n"
             f"  + registerActiveBot clears stop flag when bot restarts"
         )
