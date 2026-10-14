@@ -36,11 +36,16 @@ public class BypassHelper implements Runnable {
     private static Field fa;
     private static Field fJ;
     private static Field fo;
+    private static Field fO;
+    private static Field fl;
     private static Field fF;
     private static Method mp;
     private static Method mJN;
     private static Method mQI;
+    private static Method mSaveClientAccounts;
+    private static Method mv5;
     private static boolean initialized = false;
+    private static volatile boolean shutdownHookRegistered = false;
 
     // Đường dẫn file lưu trữ trạng thái giữa các lần mở tool
     // Tool chạy từ thư mục app/ nên dùng đường dẫn tương đối data/bot-state.json
@@ -315,13 +320,13 @@ public class BypassHelper implements Runnable {
             String json = root.z(new Object[0]);
             // Ghi vào cả data/ và app/data/ tự động nhận biết thư mục chạy
             writeStateToFile(new File("data/bot-state.json"), json);
-            File curDir = new File(".").getAbsoluteFile();
-            if (curDir.getName().equalsIgnoreCase("app")) {
-                File parent = curDir.getParentFile();
-                if (parent != null) {
-                    writeStateToFile(new File(parent, "data/bot-state.json"), json);
-                    writeStateToFile(new File(parent, "app/data/bot-state.json"), json);
-                }
+            if (isRunningInAppDir()) {
+                try {
+                    File parent = new File(".").getCanonicalFile().getParentFile();
+                    if (parent != null) {
+                        writeStateToFile(new File(parent, "data/bot-state.json"), json);
+                    }
+                } catch (Throwable ignored) {}
             } else {
                 writeStateToFile(new File("app/data/bot-state.json"), json);
             }
@@ -696,6 +701,8 @@ public class BypassHelper implements Runnable {
             try { fa = qClass.getDeclaredField("a"); fa.setAccessible(true); } catch (Throwable t) {}
             try { fJ = qClass.getDeclaredField("J"); fJ.setAccessible(true); } catch (Throwable t) {}
             try { fo = qClass.getDeclaredField("o"); fo.setAccessible(true); } catch (Throwable t) {}
+            try { fO = qClass.getDeclaredField("O"); fO.setAccessible(true); } catch (Throwable t) {}
+            try { fl = qClass.getDeclaredField("l"); fl.setAccessible(true); } catch (Throwable t) {}
 
             try {
                 Class<?> wClass = Class.forName("avt.W");
@@ -712,7 +719,16 @@ public class BypassHelper implements Runnable {
                     mQI = m;
                     mQI.setAccessible(true);
                 }
+                if (m.getName().equals("Y") && m.getReturnType() == void.class && m.getParameterTypes().length == 1) {
+                    mSaveClientAccounts = m;
+                    mSaveClientAccounts.setAccessible(true);
+                }
             }
+
+            try {
+                mv5 = qClass.getDeclaredMethod("v5", Object[].class);
+                mv5.setAccessible(true);
+            } catch (Throwable t) {}
 
             try {
                 Class<?> jClass = Class.forName("avt.game.j");
@@ -725,6 +741,20 @@ public class BypassHelper implements Runnable {
                 }
             } catch (Throwable t) {}
 
+            syncAccountFilesOnStartup();
+
+            if (!shutdownHookRegistered) {
+                shutdownHookRegistered = true;
+                try {
+                    Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+                        public void run() {
+                            saveClientAccounts();
+                            persistState();
+                        }
+                    }, "AccountSaverShutdownHook"));
+                } catch (Throwable t) {}
+            }
+
             initialized = true;
         } catch (Throwable t) {
             t.printStackTrace();
@@ -736,7 +766,9 @@ public class BypassHelper implements Runnable {
         try {
             if (fE != null) fE.setBoolean(null, true);
             if (fc != null) fc.setBoolean(null, true);
-            if (fW != null) fW.set(null, "Không giới hạn (Vĩnh viễn)");
+            if (fW != null) fW.set(null, "user");
+            if (fO != null) fO.set(null, "Không giới hạn (Vĩnh viễn)");
+            if (fl != null) fl.set(null, "Vĩnh viễn");
             if (fJ != null) fJ.setInt(null, -1);
 
             List<String> allModes = Arrays.asList("fishTool", "fishermanTool", "farmer", "combinedTool");
@@ -805,6 +837,201 @@ public class BypassHelper implements Runnable {
                 authObj.put("role", "user");
                 authObj.put("timeRemaining", "Không giới hạn (Vĩnh viễn)");
                 fa.set(null, authObj);
+            }
+
+            saveClientAccounts();
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
+
+    private static boolean hasAccountCredentials(List accountsList) {
+        if (accountsList == null || accountsList.isEmpty()) return false;
+        for (Object acc : accountsList) {
+            if (acc == null) continue;
+            try {
+                Field fn = acc.getClass().getDeclaredField("N");
+                fn.setAccessible(true);
+                Object u = fn.get(acc);
+                if (u != null && !u.toString().trim().isEmpty()) {
+                    return true;
+                }
+            } catch (Throwable t) {}
+            try {
+                Field fp = acc.getClass().getDeclaredField("p");
+                fp.setAccessible(true);
+                Object p = fp.get(acc);
+                if (p != null && !p.toString().trim().isEmpty()) {
+                    return true;
+                }
+            } catch (Throwable t) {}
+        }
+        return false;
+    }
+
+    private static boolean fileHasAccountCredentials(File file) {
+        if (file == null || !file.isFile() || file.length() < 10) return false;
+        try {
+            String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            if (content.contains("\"username\":\"") && !content.contains("\"username\":\"\"")) {
+                return true;
+            }
+            if (content.contains("\"password\":\"") && !content.contains("\"password\":\"\"")) {
+                return true;
+            }
+        } catch (Throwable t) {}
+        return false;
+    }
+
+    private static boolean isRunningInAppDir() {
+        try {
+            File curDir = new File(".").getCanonicalFile();
+            return "app".equalsIgnoreCase(curDir.getName());
+        } catch (Throwable t) {
+            String path = new File(".").getAbsolutePath().replace('\\', '/');
+            return path.endsWith("/app/.") || path.endsWith("/app");
+        }
+    }
+
+    private static List<File> getTargetAccountFiles() {
+        List<File> list = new ArrayList<File>();
+        list.add(new File("data/client-accounts.json"));
+        if (isRunningInAppDir()) {
+            try {
+                File parent = new File(".").getCanonicalFile().getParentFile();
+                if (parent != null) {
+                    list.add(new File(parent, "data/client-accounts.json"));
+                }
+            } catch (Throwable ignored) {}
+        } else {
+            list.add(new File("app/data/client-accounts.json"));
+        }
+        return list;
+    }
+
+    public static synchronized void syncAccountFilesOnStartup() {
+        try {
+            List<File> targetFiles = getTargetAccountFiles();
+
+            File bestFile = null;
+            String bestContent = null;
+            boolean bestHasCreds = false;
+
+            for (File f : targetFiles) {
+                try {
+                    if (f.isFile() && f.length() > 10) {
+                        String content = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
+                        if (content.startsWith("[") && content.endsWith("]")) {
+                            boolean hasCreds = content.contains("\"username\":\"") && !content.contains("\"username\":\"\"");
+                            if (bestFile == null || (!bestHasCreds && hasCreds) || (hasCreds && content.length() > (bestContent != null ? bestContent.length() : 0))) {
+                                bestFile = f;
+                                bestContent = content;
+                                bestHasCreds = hasCreds;
+                                if (hasCreds) break;
+                            }
+                        }
+                    }
+                } catch (Throwable t) {}
+            }
+
+            if (bestContent != null && bestFile != null) {
+                byte[] bytes = bestContent.getBytes(StandardCharsets.UTF_8);
+                for (File f : targetFiles) {
+                    try {
+                        File parent = f.getParentFile();
+                        if (parent != null && !parent.exists()) {
+                            parent.mkdirs();
+                        }
+                        if (parent != null && parent.exists()) {
+                            boolean targetHasCreds = fileHasAccountCredentials(f);
+                            if (!targetHasCreds && bestHasCreds) {
+                                Files.write(f.toPath(), bytes);
+                            } else if (!f.exists() || f.length() < 10) {
+                                Files.write(f.toPath(), bytes);
+                            }
+                        }
+                    } catch (Throwable t) {}
+                }
+            }
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
+
+    public static synchronized void saveClientAccounts() {
+        try {
+            if (fM == null) return;
+            List accountsList = (List) fM.get(null);
+            if (accountsList == null || accountsList.isEmpty()) {
+                return;
+            }
+
+            List<File> targetFiles = getTargetAccountFiles();
+            boolean hasCreds = hasAccountCredentials(accountsList);
+
+            // Safety guard: If memory list has NO credentials, but disk files ALREADY have credentials,
+            // DO NOT OVERWRITE! Instead, reload them from disk into memory!
+            if (!hasCreds) {
+                boolean anyDiskHasCreds = false;
+                for (File f : targetFiles) {
+                    if (fileHasAccountCredentials(f)) {
+                        anyDiskHasCreds = true;
+                        break;
+                    }
+                }
+                if (anyDiskHasCreds) {
+                    if (mv5 != null) {
+                        try {
+                            mv5.invoke(null, new Object[]{ new Object[0] });
+                        } catch (Throwable t) {}
+                    }
+                    return;
+                }
+            }
+
+            p jsonArray = new p();
+            for (int i = 0; i < accountsList.size(); i++) {
+                Object acc = accountsList.get(i);
+                if (acc == null) continue;
+                try {
+                    try {
+                        Field fd = acc.getClass().getDeclaredField("d");
+                        fd.setAccessible(true);
+                        fd.setInt(acc, i + 1);
+                    } catch (Throwable t) {}
+
+                    Method ma = acc.getClass().getDeclaredMethod("a", Object[].class);
+                    ma.setAccessible(true);
+                    S jsonAcc = (S) ma.invoke(acc, new Object[]{ new Object[]{ Integer.valueOf(i + 1) } });
+                    if (jsonAcc != null) {
+                        jsonArray.add(jsonAcc);
+                    }
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }
+
+            if (jsonArray.isEmpty()) return;
+
+            String jsonStr = jsonArray.z(new Object[0]);
+            byte[] bytes = jsonStr.getBytes(StandardCharsets.UTF_8);
+
+            for (File file : targetFiles) {
+                try {
+                    File parent = file.getParentFile();
+                    if (parent != null && !parent.exists()) {
+                        parent.mkdirs();
+                    }
+                    if (parent != null && parent.exists()) {
+                        Files.write(file.toPath(), bytes);
+                    }
+                } catch (Throwable t) {}
+            }
+
+            if (mSaveClientAccounts != null) {
+                try {
+                    mSaveClientAccounts.invoke(null, new Object[]{ new Object[]{ Boolean.FALSE } });
+                } catch (Throwable t) {}
             }
         } catch (Throwable t) {
             t.printStackTrace();
