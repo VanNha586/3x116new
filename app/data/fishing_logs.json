@@ -1,0 +1,132 @@
+{
+  "version": 2,
+  "lastUpdated": "2026-10-06T06:59:19.039Z",
+  "entries": [
+    {
+      "sequence": 1,
+      "epochMillis": 1791269944255,
+      "timestamp": "2026-10-06 13:59:04",
+      "stream": "SYSTEM",
+      "message": "💾 Đã lưu cấu hình tài khoản và chế độ chạy thành công."
+    },
+    {
+      "sequence": 2,
+      "epochMillis": 1791269948038,
+      "timestamp": "2026-10-06 13:59:08",
+      "stream": "SYSTEM",
+      "message": "🎣 Bắt đầu câu cá..."
+    },
+    {
+      "sequence": 3,
+      "epochMillis": 1791269948041,
+      "timestamp": "2026-10-06 13:59:08",
+      "stream": "UNLIMITED",
+      "message": "🐟 [Không giới hạn - Lần 1] Câu được cá"
+    },
+    {
+      "sequence": 4,
+      "epochMillis": 1791269948042,
+      "timestamp": "2026-10-06 13:59:08",
+      "stream": "UNCLEAR",
+      "message": "🐟 [Không rõ - Lần 1] Câu được cá"
+    },
+    {
+      "sequence": 5,
+      "epochMillis": 1791269950044,
+      "timestamp": "2026-10-06 13:59:10",
+      "stream": "UNCLEAR",
+      "message": "🐟 [Không rõ - Lần 2] Câu được cá"
+    },
+    {
+      "sequence": 6,
+      "epochMillis": 1791269950049,
+      "timestamp": "2026-10-06 13:59:10",
+      "stream": "UNLIMITED",
+      "message": "🐟 [Không giới hạn - Lần 2] Câu được cá"
+    },
+    {
+      "sequence": 7,
+      "epochMillis": 1791269952050,
+      "timestamp": "2026-10-06 13:59:12",
+      "stream": "UNCLEAR",
+      "message": "🐟 [Không rõ - Lần 3] Câu được cá"
+    },
+    {
+      "sequence": 8,
+      "epochMillis": 1791269952059,
+      "timestamp": "2026-10-06 13:59:12",
+      "stream": "UNLIMITED",
+      "message": "🐟 [Không giới hạn - Lần 3] Câu được cá"
+    },
+    {
+      "sequence": 9,
+      "epochMillis": 1791269954052,
+      "timestamp": "2026-10-06 13:59:14",
+      "stream": "UNCLEAR",
+      "message": "🐟 [Không rõ - Lần 4] Câu được cá"
+    },
+    {
+      "sequence": 10,
+      "epochMillis": 1791269954060,
+      "timestamp": "2026-10-06 13:59:14",
+      "stream": "UNLIMITED",
+      "message": "🐟 [Không giới hạn - Lần 4] Câu được cá"
+    },
+    {
+      "sequence": 11,
+      "epochMillis": 1791269956054,
+      "timestamp": "2026-10-06 13:59:16",
+      "stream": "UNCLEAR",
+      "message": "🐟 [Không rõ - Lần 5] Câu được cá"
+    },
+    {
+      "sequence": 12,
+      "epochMillis": 1791269956062,
+      "timestamp": "2026-10-06 13:59:16",
+      "stream": "UNLIMITED",
+      "message": "🐟 [Không giới hạn - Lần 5] Câu được cá"
+    },
+    {
+      "sequence": 13,
+      "epochMillis": 1791269958056,
+      "timestamp": "2026-10-06 13:59:18",
+      "stream": "UNCLEAR",
+      "message": "🐟 [Không rõ - Lần 6] Câu được cá"
+    },
+    {
+      "sequence": 14,
+      "epochMillis": 1791269958066,
+      "timestamp": "2026-10-06 13:59:18",
+      "stream": "UNLIMITED",
+      "message": "🐟 [Không giới hạn - Lần 6] Câu được cá"
+    },
+    {
+      "sequence": 15,
+      "epochMillis": 1791269959002,
+      "timestamp": "2026-10-06 13:59:19",
+      "stream": "SYSTEM",
+      "message": "⏹️ Người dùng bấm DỪNG"
+    },
+    {
+      "sequence": 16,
+      "epochMillis": 1791269959004,
+      "timestamp": "2026-10-06 13:59:19",
+      "stream": "UNLIMITED",
+      "message": "⏹️ Dừng Không giới hạn"
+    },
+    {
+      "sequence": 17,
+      "epochMillis": 1791269959037,
+      "timestamp": "2026-10-06 13:59:19",
+      "stream": "UNCLEAR",
+      "message": "⏹️ Dừng Không rõ"
+    },
+    {
+      "sequence": 18,
+      "epochMillis": 1791269959039,
+      "timestamp": "2026-10-06 13:59:19",
+      "stream": "SYSTEM",
+      "message": "⏹️ Đã dừng toàn bộ luồng câu cá"
+    }
+  ]
+}

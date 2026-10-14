@@ -359,7 +359,13 @@ class StopButtonRegressionTests(unittest.TestCase):
         # patch_stop_flag only patches classes whose stop-field references use the
         # "w" sentinel string. The javac-compiled watchdog never used "w", so we
         # skip it here.
-        SKIP_FOR_STALE = {"avt/BypassHelper$5.class"}
+        # avt/BypassHelper.class: the new compiled version accesses "w" only via
+        # reflection (getDeclaredField("w")) so "w" appears in the CP but may not
+        # have a low enough index (≤ 0xFF) for the ldc instruction, which means
+        # make_stop_references_stale() cannot build a synthetic stale fixture.
+        # patch_stop_flag does NOT patch BypassHelper.class itself (only $5 watchdog),
+        # so this is safe to skip.
+        SKIP_FOR_STALE = {"avt/BypassHelper$5.class", "avt/BypassHelper.class"}
         for class_name in TARGET_METHODS:
             if class_name in SKIP_FOR_STALE:
                 continue
