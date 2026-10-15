@@ -38,9 +38,14 @@ DEFAULT_JAR = ROOT / "app" / "tool.jar"
 HELPER_CLASS = "avt/BypassHelper.class"
 STOP_CLASS = "avt/Q.class"
 STOP_METHOD = ("H", "([Ljava/lang/Object;)V")
+UI_STOP_METHOD = ("O", "([Ljava/lang/Object;)Ljava/lang/String;")
+UI_STOP_ALL_METHOD = ("q", "([Ljava/lang/Object;)Ljava/lang/String;")
 FALLBACK_METHOD = ("stopBotAtIndex", "(I)V")
+STOP_ALL_METHOD = ("stopAllBots", "()V")
 SINGLE_ACCOUNT_METHOD = ("getSingleAccountFallbackBot", "(I)Ljava/lang/Object;")
 FALLBACK_INSERTION_PC = 44
+UI_STOP_INSERTION_PC = 41
+UI_STOP_ALL_INSERTION_PC = 22
 
 
 def _member_ref(pool: ConstantPool, tag: int, owner: str,
@@ -306,9 +311,13 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
     patched = 0
     stop_method_found = False
     fallback_ref = None
+    stop_all_ref = None
     if class_name == STOP_CLASS:
         fallback_ref = _member_ref(
             pool, 10, "avt/BypassHelper", FALLBACK_METHOD[0], FALLBACK_METHOD[1]
+        )
+        stop_all_ref = _member_ref(
+            pool, 10, "avt/BypassHelper", STOP_ALL_METHOD[0], STOP_ALL_METHOD[1]
         )
 
     for _ in range(method_count):
@@ -341,6 +350,24 @@ def patch_class(data: bytes, class_name: str) -> Tuple[bytes, int]:
                         call = b"\x1b\xb8" + struct.pack(">H", fallback_ref)
                         attribute_info = _rewrite_code_attribute(
                             attribute_info, pool, {FALLBACK_INSERTION_PC: call}
+                        )
+                        patched += 1
+            if class_name == STOP_CLASS and method_key == UI_STOP_METHOD:
+                if attribute_name == "Code":
+                    code = _code_from_attribute(attribute_info)
+                    if not _has_static_call(code, pool, FALLBACK_METHOD):
+                        call = b"\x1b\xb8" + struct.pack(">H", fallback_ref)
+                        attribute_info = _rewrite_code_attribute(
+                            attribute_info, pool, {UI_STOP_INSERTION_PC: call}
+                        )
+                        patched += 1
+            if class_name == STOP_CLASS and method_key == UI_STOP_ALL_METHOD:
+                if attribute_name == "Code":
+                    code = _code_from_attribute(attribute_info)
+                    if not _has_static_call(code, pool, STOP_ALL_METHOD):
+                        call = b"\xb8" + struct.pack(">H", stop_all_ref)
+                        attribute_info = _rewrite_code_attribute(
+                            attribute_info, pool, {UI_STOP_ALL_INSERTION_PC: call}
                         )
                         patched += 1
             attributes.append((attribute_name_index, attribute_info))

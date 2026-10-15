@@ -189,8 +189,10 @@ def patch_jar(
                 sys.path.insert(0, str(tools_dir))
             import patch_stop_flag
             patch_stop_flag.patch_jar(destination)
+            import patch_stop_fallback
+            patch_stop_fallback.patch_jar(destination)
         except Exception as e:
-            print(f"  warning: failed to apply stop-flag guards: {e}", file=sys.stderr)
+            print(f"  warning: failed to apply stop-flag/fallback guards: {e}", file=sys.stderr)
     finally:
         if tmp_path.exists():
             tmp_path.unlink()

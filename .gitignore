@@ -12,3 +12,4 @@ Desktop.ini
 # Python cache
 __pycache__/
 *.py[cod]
+.compile_bypass_tmp/

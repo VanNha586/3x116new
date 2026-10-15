@@ -256,107 +256,121 @@ public class BypassHelper implements Runnable {
         // Đánh dấu index này đã dừng ngay lập tức để chặn log đang enqueue
         stoppedBotIndices.add(Integer.valueOf(index));
 
+        init();
         Object bot = activeBotsByIndex.get(Integer.valueOf(index));
+        if (isBotStopped(bot)) {
+            try {
+                if (fo != null) {
+                    Object[] bots = (Object[]) fo.get(null);
+                    if (bots != null && index >= 0 && index < bots.length && bots[index] != null) {
+                        if (!isBotStopped(bots[index])) {
+                            bot = bots[index];
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
         if (isBotStopped(bot)) {
             Object fallbackBot = getSingleAccountFallbackBot(index);
             if (!isBotStopped(fallbackBot)) bot = fallbackBot;
         }
-        if (isBotStopped(bot)) return;
 
-        cancelPendingCast(bot);
-        try {
-            // Dùng reflection để tránh lỗi ambiguous overload từ obfuscation
-            Field hlField = bot.getClass().getDeclaredField("hl");
-            hlField.setAccessible(true);
-            hlField.setBoolean(bot, true);
-
+        if (!isBotStopped(bot)) {
+            cancelPendingCast(bot);
             try {
-                Field hoField = bot.getClass().getDeclaredField("ho");
-                hoField.setAccessible(true);
-                hoField.setBoolean(bot, true);
-            } catch (Throwable ignored) {}
+                // Dùng reflection để tránh lỗi ambiguous overload từ obfuscation
+                Field hlField = bot.getClass().getDeclaredField("hl");
+                hlField.setAccessible(true);
+                hlField.setBoolean(bot, true);
 
-            // Khóa cờ hy để Sd() không thể reconnect
-            try {
-                Field hyField = bot.getClass().getDeclaredField("hy");
-                hyField.setAccessible(true);
-                Object hy = hyField.get(bot);
-                if (hy instanceof AtomicBoolean) {
-                    ((AtomicBoolean) hy).set(true);
-                }
-            } catch (Throwable ignored) {}
+                try {
+                    Field hoField = bot.getClass().getDeclaredField("ho");
+                    hoField.setAccessible(true);
+                    hoField.setBoolean(bot, true);
+                } catch (Throwable ignored) {}
 
-            // Hủy reconnect scheduler trong listener F (avt.game.O)
-            try {
-                Field fField = bot.getClass().getDeclaredField("F");
-                fField.setAccessible(true);
-                Object listener = fField.get(bot);
-                if (listener != null) {
-                    try {
-                        Field bField = listener.getClass().getDeclaredField("b");
-                        bField.setAccessible(true);
-                        Object fut = bField.get(listener);
-                        if (fut instanceof ScheduledFuture) {
-                            ((ScheduledFuture<?>) fut).cancel(true);
-                        }
-                    } catch (Throwable ignored) {}
-                    try {
-                        Field hField = listener.getClass().getDeclaredField("H");
-                        hField.setAccessible(true);
-                        Object exec = hField.get(listener);
-                        if (exec instanceof ScheduledExecutorService) {
-                            ((ScheduledExecutorService) exec).shutdownNow();
-                        }
-                    } catch (Throwable ignored) {}
-                }
-            } catch (Throwable ignored) {}
+                // Khóa cờ hy để Sd() không thể reconnect
+                try {
+                    Field hyField = bot.getClass().getDeclaredField("hy");
+                    hyField.setAccessible(true);
+                    Object hy = hyField.get(bot);
+                    if (hy instanceof AtomicBoolean) {
+                        ((AtomicBoolean) hy).set(true);
+                    }
+                } catch (Throwable ignored) {}
 
-            // Dừng executor hf trong bot k
-            try {
-                Field hfField = bot.getClass().getDeclaredField("hf");
-                hfField.setAccessible(true);
-                Object hf = hfField.get(bot);
-                if (hf instanceof ScheduledExecutorService) {
-                    ((ScheduledExecutorService) hf).shutdownNow();
-                }
-            } catch (Throwable ignored) {}
+                // Hủy reconnect scheduler trong listener F (avt.game.O)
+                try {
+                    Field fField = bot.getClass().getDeclaredField("F");
+                    fField.setAccessible(true);
+                    Object listener = fField.get(bot);
+                    if (listener != null) {
+                        try {
+                            Field bField = listener.getClass().getDeclaredField("b");
+                            bField.setAccessible(true);
+                            Object fut = bField.get(listener);
+                            if (fut instanceof ScheduledFuture) {
+                                ((ScheduledFuture<?>) fut).cancel(true);
+                            }
+                        } catch (Throwable ignored) {}
+                        try {
+                            Field hField = listener.getClass().getDeclaredField("H");
+                            hField.setAccessible(true);
+                            Object exec = hField.get(listener);
+                            if (exec instanceof ScheduledExecutorService) {
+                                ((ScheduledExecutorService) exec).shutdownNow();
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                } catch (Throwable ignored) {}
 
-            Method stopMethod = null;
-            for (Method m : bot.getClass().getDeclaredMethods()) {
-                if ("N".equals(m.getName()) && m.getParameterTypes().length == 1
-                        && m.getParameterTypes()[0] == Object[].class) {
-                    stopMethod = m;
-                    break;
+                // Dừng executor hf trong bot k
+                try {
+                    Field hfField = bot.getClass().getDeclaredField("hf");
+                    hfField.setAccessible(true);
+                    Object hf = hfField.get(bot);
+                    if (hf instanceof ScheduledExecutorService) {
+                        ((ScheduledExecutorService) hf).shutdownNow();
+                    }
+                } catch (Throwable ignored) {}
+
+                Method stopMethod = null;
+                for (Method m : bot.getClass().getDeclaredMethods()) {
+                    if ("N".equals(m.getName()) && m.getParameterTypes().length == 1
+                            && m.getParameterTypes()[0] == Object[].class) {
+                        stopMethod = m;
+                        break;
+                    }
                 }
+                if (stopMethod != null) {
+                    stopMethod.setAccessible(true);
+                    stopMethod.invoke(bot, new Object[]{ new Object[0] });
+                }
+
+                // Đóng socket kết nối
+                try {
+                    Field jField = bot.getClass().getDeclaredField("J");
+                    jField.setAccessible(true);
+                    Object session = jField.get(bot);
+                    if (session != null) {
+                        Method mn = session.getClass().getDeclaredMethod("n", Object[].class);
+                        mn.setAccessible(true);
+                        mn.invoke(session, new Object[]{ new Object[0] });
+                    }
+                } catch (Throwable ignored) {}
+
+                // Ngắt thread thực thi bot
+                try {
+                    Field hxField = bot.getClass().getDeclaredField("hX");
+                    hxField.setAccessible(true);
+                    Object thread = hxField.get(bot);
+                    if (thread instanceof Thread) {
+                        ((Thread) thread).interrupt();
+                    }
+                } catch (Throwable ignored) {}
+            } catch (Throwable t) {
+                // Best-effort
             }
-            if (stopMethod != null) {
-                stopMethod.setAccessible(true);
-                stopMethod.invoke(bot, new Object[]{ new Object[0] });
-            }
-
-            // Đóng socket kết nối
-            try {
-                Field jField = bot.getClass().getDeclaredField("J");
-                jField.setAccessible(true);
-                Object session = jField.get(bot);
-                if (session != null) {
-                    Method mn = session.getClass().getDeclaredMethod("n", Object[].class);
-                    mn.setAccessible(true);
-                    mn.invoke(session, new Object[]{ new Object[0] });
-                }
-            } catch (Throwable ignored) {}
-
-            // Ngắt thread thực thi bot
-            try {
-                Field hxField = bot.getClass().getDeclaredField("hX");
-                hxField.setAccessible(true);
-                Object thread = hxField.get(bot);
-                if (thread instanceof Thread) {
-                    ((Thread) thread).interrupt();
-                }
-            } catch (Throwable ignored) {}
-        } catch (Throwable t) {
-            // Best-effort
         }
 
         activeBotsByIndex.remove(Integer.valueOf(index));

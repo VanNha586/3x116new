@@ -33,3 +33,17 @@
   4. Trong `BypassHelper.getStateJson`: kiểm tra `stoppedBotIndices.contains(i)`, nếu đã dừng thì gán `bot = null`, `acc.b = false`, trả về `isRunning = false` và `running = false` để UI lập tức chuyển sang "Đã dừng".
 - **Quy tắc:** Khi can thiệp cơ chế dừng tiến trình mạng/bot có cơ chế tự phục hồi (auto-reconnect scheduler), phải triệt tiêu cả bộ hẹn giờ (reconnect executor/future) và vô hiệu hóa cờ khởi tạo reconnect (`AtomicBoolean hy`). Mọi tác vụ delay/schedule ngầm phải được track để có thể cancel khi dừng.
 - **Test:** [test_stop_behavior_regression.py](file:///F:/apps/3x116/tests/test_stop_behavior_regression.py)
+
+## [2026-10-15] Nút "Dừng" trên UI không dừng bot đang chạy do bị nhảy nhánh bytecode
+- **Triệu chứng:** Người dùng click nút "Dừng" trên giao diện (chạy file `F:\apps\3x116\Chay-Tool.bat`) nhưng bot vẫn tiếp tục chạy, trạng thái không chuyển về "Đã dừng".
+- **Nguyên nhân gốc:**
+  1. Nút "Dừng" ở dòng tài khoản kích hoạt `DebugToDeath.lambda$accountRowNode$7` -> `DebugToDeath.n` -> `avt.e.E()` -> `avt.Q.O([slot])` -> `avt.Q.H([slot])`.
+  2. Trong `avt.Q.H`, bytecode tại offset 36-41 kiểm tra `ifnonnull 270` đối với `avt.Q.o[slot]`. Khi bot **đang chạy**, slot này khác null nên execution nhảy thẳng tới offset 270, **bỏ qua hoàn toàn** lệnh gọi `BypassHelper.stopBotAtIndex` tại offset 44 (vốn chỉ nằm ở nhánh slot null).
+  3. Tại nhánh 270+, `avt.Q.H` chỉ gán `hl = true`, gọi `k.N()` và gán `o[slot] = null`, nhưng không gọi `stopBotAtIndex`, dẫn đến `stoppedBotIndices` không được thêm slot index, không hủy các ScheduledFuture cast, không set cờ `hy` để chặn reconnect, và `stopBotAtIndex` trước đó cũng không kiểm tra bot trong `avt.Q.o`.
+  4. Nút "Dừng tất cả" kích hoạt `avt.a.E()` -> `avt.Q.q()` -> `avt.Q.vZ()` -> `avt.Q.J()`, cũng không hề gọi `BypassHelper.stopAllBots()`.
+- **Cách sửa:**
+  1. Trong `tools/patch_stop_fallback.py`: patch bytecode của `avt.Q.O([Ljava/lang/Object;)Ljava/lang/String;` để gọi `BypassHelper.stopBotAtIndex(slot)` ngay khi UI yêu cầu dừng slot; patch `avt.Q.q([Ljava/lang/Object;)Ljava/lang/String;` để gọi `BypassHelper.stopAllBots()` khi UI yêu cầu dừng tất cả.
+  2. Giữ nguyên call site fallback tại PC 44 của `avt.Q.H` để tương thích tuyệt đối với các regression test trước đó.
+  3. Trong `BypassHelper.stopBotAtIndex`: bổ sung tìm bot từ mảng `avt.Q.o` (`fo`) khi `activeBotsByIndex` chưa có hoặc null; thực hiện toàn bộ quy trình hủy ScheduledFuture, khóa `hy`, cancel listener `F.b`/`F.H`, đóng socket, interrupt thread và dọn sạch `activeBotsByIndex`, `lastActiveBot`, `fo[index] = null`, `acc.b = false`.
+- **Quy tắc:** Khi hook sự kiện dừng của UI bị obfuscate, cần truy vết toàn bộ call tree từ controller UI (ActionEvent) tới tầng network và model, đặc biệt chú ý các lệnh rẽ nhánh (`ifnonnull`, `ifeq`) có thể bỏ qua call site được chèn.
+- **Test:** [test_ui_stop_action_regression.py](file:///F:/apps/3x116/tests/test_ui_stop_action_regression.py) và [test_stop_fallback_regression.py](file:///F:/apps/3x116/tests/test_stop_fallback_regression.py)
