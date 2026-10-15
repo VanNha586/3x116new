@@ -18,3 +18,18 @@
   4. Sử dụng `getCanonicalFile()` để kiểm tra đúng tên thư mục làm việc (`isRunningInAppDir()`).
 - **Quy tắc:** Mọi can thiệp vào các trường cấu hình của `avt.Q` phải kiểm tra kỹ tác động phụ tới luồng logic của các phương thức phụ thuộc (`Y`, `v5`). Luôn dùng `getCanonicalFile()` thay vì `getAbsoluteFile()` khi kiểm tra tên thư mục hiện tại.
 - **Test:** [test_account_persistence_regression.py](file:///F:/apps/3x116/tests/test_account_persistence_regression.py)
+
+## [2026-10-15] Bấm nút "Dừng" nhưng bot vẫn không dừng hoặc tự kết nối lại
+- **Triệu chứng:** Người dùng bấm nút "Dừng" ở dòng tài khoản hoặc nút "Dừng tất cả", nhưng bot vẫn tiếp tục câu hoặc tự động kết nối lại game server, giao diện vẫn hiển thị "Đang chạy".
+- **Nguyên nhân gốc:**
+  1. `avt.game.k.Sd` (phương thức tự kết nối lại) có bytecode (offset 63-65) trực tiếp gán `this.hl = false`. Khi socket bị đóng bởi lệnh dừng `bot.N()`, nếu scheduler reconnect (`avt.game.O.b`) đã được lên lịch từ trước thì nó vẫn kích hoạt `Sd()`, vô hiệu hóa cờ dừng `hl`.
+  2. Trong `BypassHelper.doQuangCau`, tác vụ delay 1.0 giây quăng câu tiếp theo không được lưu vào `pendingCastMap`, do đó khi `cancelPendingCast` được gọi, tác vụ 1s này không bị hủy và tiếp tục gửi packet bắt đầu lượt câu 45/41.
+  3. Trong `avt.game.O.handleDisconnected`, khi bot dừng, listener reconnect executor (`O.H`) và `ScheduledFuture` (`O.b`) không bị shutdown/cancel triệt để.
+  4. Trong `BypassHelper.getStateJson`, khi index đã bị dừng (`stoppedBotIndices`), nếu `bot` trong cache vẫn còn và cờ `hl` bị `Sd()` reset thì trạng thái `isRunning` vẫn trả về `true`.
+- **Cách sửa:**
+  1. Trong `BypassHelper.stopBotAtIndex`: set `bot.hy` (AtomicBoolean guard reconnect) = `true` để `Sd()` không thể `compareAndSet(false, true)`; hủy timer `F.b`, shutdown `F.H` và `bot.hf`; ngắt socket `J.n()` và ngắt luồng `hX.interrupt()`.
+  2. Trong `BypassHelper.doQuangCau`: đưa `ScheduledFuture` của delay 1.0s vào `pendingCastMap` để `cancelPendingCast` hủy ngay lập tức.
+  3. Trong `BypassHelper.handleDisconnected`: kiểm tra `isStopped` (bao gồm `isStopping` và `stoppedBotIndices`), hủy ngay `listener.b`, shutdown `listener.H` và gọi `bot.S()`, tuyệt đối không gọi `listener.j()` (reconnect).
+  4. Trong `BypassHelper.getStateJson`: kiểm tra `stoppedBotIndices.contains(i)`, nếu đã dừng thì gán `bot = null`, `acc.b = false`, trả về `isRunning = false` và `running = false` để UI lập tức chuyển sang "Đã dừng".
+- **Quy tắc:** Khi can thiệp cơ chế dừng tiến trình mạng/bot có cơ chế tự phục hồi (auto-reconnect scheduler), phải triệt tiêu cả bộ hẹn giờ (reconnect executor/future) và vô hiệu hóa cờ khởi tạo reconnect (`AtomicBoolean hy`). Mọi tác vụ delay/schedule ngầm phải được track để có thể cancel khi dừng.
+- **Test:** [test_stop_behavior_regression.py](file:///F:/apps/3x116/tests/test_stop_behavior_regression.py)
